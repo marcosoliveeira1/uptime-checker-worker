@@ -1,70 +1,58 @@
-import { IMessageBroker } from '../../domain/interfaces/message-broker.interface';
-import { IStorageProvider } from '../../domain/interfaces/storage.interface';
+import { RabbitMQAdapter } from '../adapters/rabbitmq.adapter';
 
 export interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
-  timestamp: string;
-  uptime: number;
-  checks: {
-    rabbitmq: {
-      connected: boolean;
-      error?: string;
-    };
-  };
-  metrics: {
-    lastJobProcessedAt?: string;
-    jobsProcessed: number;
-  };
+  uptime_seconds: number;
+  monitors_active: number;
+  checks_total: number;
+  checks_failed: number;
+  active_checks: number;
+  scheduler_running: boolean;
+  rabbitmq_connected: boolean;
+}
+
+export interface HealthMetricsProvider {
+  getMonitorsActive(): number;
+  getChecksTotal(): number;
+  getChecksFailed(): number;
+  getActiveChecks(): number;
+  isSchedulerRunning(): boolean;
 }
 
 export class HealthService {
   private startTime = Date.now();
-  private jobsProcessed = 0;
-  private lastJobProcessedAt?: Date;
+  private metricsProvider: HealthMetricsProvider | null = null;
 
   constructor(
-    private messageBroker: IMessageBroker,
-  ) { }
+    private readonly broker: RabbitMQAdapter,
+  ) {}
+
+  setMetricsProvider(provider: HealthMetricsProvider): void {
+    this.metricsProvider = provider;
+  }
 
   async check(): Promise<HealthStatus> {
-    const rabbitmqCheck = await this.checkRabbitMQ();
+    const rabbitmqConnected = this.broker.isConnected();
+    const schedulerRunning = this.metricsProvider?.isSchedulerRunning() ?? false;
 
-    const isHealthy = rabbitmqCheck.connected;
+    const isHealthy = rabbitmqConnected;
     const status = isHealthy ? 'healthy' : 'degraded';
 
     return {
       status,
-      timestamp: new Date().toISOString(),
-      uptime: Date.now() - this.startTime,
-      checks: {
-        rabbitmq: rabbitmqCheck,
-      },
-      metrics: {
-        lastJobProcessedAt: this.lastJobProcessedAt?.toISOString(),
-        jobsProcessed: this.jobsProcessed,
-      },
+      uptime_seconds: Math.floor((Date.now() - this.startTime) / 1000),
+      monitors_active: this.metricsProvider?.getMonitorsActive() ?? 0,
+      checks_total: this.metricsProvider?.getChecksTotal() ?? 0,
+      checks_failed: this.metricsProvider?.getChecksFailed() ?? 0,
+      active_checks: this.metricsProvider?.getActiveChecks() ?? 0,
+      scheduler_running: schedulerRunning,
+      rabbitmq_connected: rabbitmqConnected,
     };
   }
 
-  recordJobProcessed(): void {
-    this.jobsProcessed++;
-    this.lastJobProcessedAt = new Date();
-  }
-
-  private async checkRabbitMQ(): Promise<{ connected: boolean; error?: string }> {
-    try {
-      // Check if the broker has an isConnected method or property
-      if (typeof (this.messageBroker as any).isConnected === 'function') {
-        const connected = await (this.messageBroker as any).isConnected();
-        return { connected };
-      }
-      // Fallback: assume connected if no error is thrown
-      return { connected: true };
-    } catch (error) {
-      return {
-        connected: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+  async isReady(): Promise<boolean> {
+    const rabbitmqConnected = this.broker.isConnected();
+    const schedulerRunning = this.metricsProvider?.isSchedulerRunning() ?? false;
+    return rabbitmqConnected && schedulerRunning;
   }
 }

@@ -2,225 +2,370 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RabbitMQAdapter } from './rabbitmq.adapter';
 import * as amqp from 'amqplib';
 
-vi.mock('amqplib', () => ({
-  connect: vi.fn(),
-}));
+vi.mock('amqplib');
+
+const mockedAmqp = vi.mocked(amqp);
+
+function createMockChannel() {
+  return {
+    prefetch: vi.fn().mockResolvedValue(undefined),
+    assertExchange: vi.fn().mockResolvedValue(undefined),
+    assertQueue: vi.fn().mockResolvedValue(undefined),
+    bindQueue: vi.fn().mockResolvedValue(undefined),
+    publish: vi.fn(),
+    consume: vi.fn().mockResolvedValue(undefined),
+    ack: vi.fn(),
+    nack: vi.fn(),
+    close: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createMockConnection(channel: ReturnType<typeof createMockChannel>) {
+  const handlers: Record<string, (...args: any[]) => void> = {};
+  return {
+    createChannel: vi.fn().mockResolvedValue(channel),
+    close: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn((event: string, cb: (...args: any[]) => void) => {
+      handlers[event] = cb;
+    }),
+    handlers,
+  };
+}
 
 describe('RabbitMQAdapter', () => {
   let adapter: RabbitMQAdapter;
-  let mockConnection: any;
-  let mockChannel: any;
 
   beforeEach(() => {
-    vi.useFakeTimers(); // ⏱️ Controlar o tempo para testes de reconexão
-
-    mockChannel = {
-      assertExchange: vi.fn(),
-      assertQueue: vi.fn(),
-      bindQueue: vi.fn(),
-      prefetch: vi.fn(),
-      publish: vi.fn(),
-      consume: vi.fn(),
-      ack: vi.fn(),
-      nack: vi.fn(),
-      close: vi.fn(),
-    };
-
-    mockConnection = {
-      createChannel: vi.fn().mockResolvedValue(mockChannel),
-      close: vi.fn(),
-      on: vi.fn(),
-    };
-
-    vi.mocked(amqp.connect).mockResolvedValue(mockConnection);
-    adapter = new RabbitMQAdapter('amqp://localhost', 2);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
     vi.clearAllMocks();
+    adapter = new RabbitMQAdapter('amqp://localhost:5672', 10);
   });
 
-  // ... (Testes anteriores mantidos: connect, publish, consume, nack, empty message, disconnect) ...
-  // Vou apenas adicionar os NOVOS testes de resiliência abaixo.
-  // Você deve manter os testes anteriores neste arquivo.
-
-  it('should connect and setup topology', async () => {
-    await adapter.connect();
-    expect(amqp.connect).toHaveBeenCalledWith('amqp://localhost');
-    expect(mockConnection.createChannel).toHaveBeenCalled();
+  afterEach(async () => {
+    try {
+      await adapter.disconnect();
+    } catch {
+      // Already disconnected or never connected
+    }
   });
 
-  // --- NOVOS TESTES DE RESILIÊNCIA ---
+  describe('connect', () => {
+    it('should connect and setup topology', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
 
-  it('should schedule reconnect on connection error', async () => {
-    await adapter.connect();
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
 
-    // Pegar o handler de erro registrado no connection.on('error', ...)
-    const calls = mockConnection.on.mock.calls;
-    const errorHandler = calls.find((call: any) => call[0] === 'error')?.[1];
+      await adapter.connect();
 
-    expect(errorHandler).toBeDefined();
+      expect(mockedAmqp.connect).toHaveBeenCalledWith('amqp://localhost:5672');
+      expect(mockChannel.prefetch).toHaveBeenCalledWith(10);
+      expect(mockChannel.assertExchange).toHaveBeenCalledTimes(2);
+      expect(mockChannel.assertQueue).toHaveBeenCalledTimes(2);
+      expect(mockChannel.bindQueue).toHaveBeenCalledTimes(3);
+      expect(adapter.isConnected()).toBe(true);
+    });
 
-    // Simular Erro
-    errorHandler(new Error('Connection lost'));
+    it('should set up correct bindings', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
 
-    // Verificar se agendou (mas não chamou connect ainda)
-    expect(amqp.connect).toHaveBeenCalledTimes(1); // A chamada inicial
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
 
-    // Avançar o tempo (5000ms configurado no adapter)
-    await vi.advanceTimersByTimeAsync(5000);
+      await adapter.connect();
 
-    // Deve ter tentado conectar de novo
-    expect(amqp.connect).toHaveBeenCalledTimes(2);
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith('uptime.commands.pending', 'uptime.commands', 'site.add');
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith('uptime.commands.pending', 'uptime.commands', 'site.update');
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith('uptime.commands.pending', 'uptime.commands', 'site.remove');
+    });
+
+    it('should handle connection error and retry', async () => {
+      vi.useFakeTimers();
+      mockedAmqp.connect.mockRejectedValueOnce(new Error('Connection failed'));
+      mockedAmqp.connect.mockResolvedValueOnce(createMockConnection(createMockChannel()) as any);
+
+      const connectPromise = adapter.connect();
+      await expect(connectPromise).rejects.toThrow('Connection failed');
+
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(mockedAmqp.connect).toHaveBeenCalledTimes(2);
+      expect(adapter.isConnected()).toBe(true);
+      vi.useRealTimers();
+    });
+
+    it('should reconnect when connection emits error or close', async () => {
+      vi.useFakeTimers();
+      const ch1 = createMockChannel();
+      const ch2 = createMockChannel();
+      const conn1 = createMockConnection(ch1);
+      const conn2 = createMockConnection(ch2);
+
+      mockedAmqp.connect
+        .mockResolvedValueOnce(conn1 as any)
+        .mockResolvedValueOnce(conn2 as any);
+
+      await adapter.connect();
+      expect(adapter.isConnected()).toBe(true);
+
+      conn1.handlers.error(new Error('boom'));
+      conn1.handlers.close();
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(mockedAmqp.connect).toHaveBeenCalledTimes(2);
+      vi.useRealTimers();
+    });
   });
 
-  it('should schedule reconnect on connection close', async () => {
-    await adapter.connect();
+  describe('publish', () => {
+    it('should publish message when connected', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
 
-    const calls = mockConnection.on.mock.calls;
-    const closeHandler = calls.find((call: any) => call[0] === 'close')?.[1];
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
 
-    expect(closeHandler).toBeDefined();
+      const message = { monitor_id: 1, status: 'up' };
+      await adapter.publish('uptime.results', 'check.completed', message);
 
-    // Simular Fechamento
-    closeHandler();
+      expect(mockChannel.publish).toHaveBeenCalledWith(
+        'uptime.results',
+        'check.completed',
+        expect.any(Buffer),
+        expect.objectContaining({ persistent: true, contentType: 'application/json' }),
+      );
+    });
 
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(amqp.connect).toHaveBeenCalledTimes(2);
+    it('should buffer messages when disconnected', async () => {
+      const message = { monitor_id: 1, status: 'up' };
+      await adapter.publish('uptime.results', 'check.completed', message);
+
+      expect(adapter.isConnected()).toBe(false);
+      expect((adapter as any).buffer).toHaveLength(1);
+    });
+
+    it('should not buffer beyond max size', async () => {
+      for (let i = 0; i < 1001; i++) {
+        await adapter.publish('uptime.results', 'check.completed', { id: i });
+      }
+
+      expect((adapter as any).buffer).toHaveLength(1000);
+    });
+
+    it('should drain buffered messages after connecting', async () => {
+      const message = { monitor_id: 99, status: 'up' };
+      await adapter.publish('uptime.results', 'check.completed', message);
+
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+
+      await adapter.connect();
+
+      expect(mockChannel.publish).toHaveBeenCalledTimes(1);
+      expect((adapter as any).buffer).toHaveLength(0);
+    });
+
+    it('should keep remaining buffer when disconnected during drain', async () => {
+      const msg1 = {
+        exchange: 'uptime.results',
+        routingKey: 'first',
+        content: Buffer.from(JSON.stringify({ id: 1 })),
+      };
+      const msg2 = {
+        exchange: 'uptime.results',
+        routingKey: 'second',
+        content: Buffer.from(JSON.stringify({ id: 2 })),
+      };
+
+      (adapter as any).buffer = [msg1, msg2];
+      (adapter as any).channel = createMockChannel();
+      (adapter as any).connected = false;
+
+      await (adapter as any).drainBuffer();
+
+      expect((adapter as any).buffer).toEqual([msg1]);
+    });
   });
 
-  it('should retry connecting if initial connection fails', async () => {
-    // Primeira tentativa falha
-    vi.mocked(amqp.connect).mockRejectedValueOnce(new Error('Broker down'));
-    // Segunda tentativa (reconexão) funciona
-    vi.mocked(amqp.connect).mockResolvedValueOnce(mockConnection);
+  describe('subscribeWithRouting', () => {
+    it('should handle messages with routing keys', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
 
-    // Tentar conectar (vai falhar e agendar retry)
-    await expect(adapter.connect()).rejects.toThrow('Broker down');
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
 
-    // Avançar tempo
-    await vi.advanceTimersByTimeAsync(5000);
+      const handler = vi.fn().mockResolvedValue(undefined);
+      await adapter.subscribeWithRouting('uptime.commands.pending', handler);
 
-    // Deve ter tentado de novo e sucesso
-    expect(amqp.connect).toHaveBeenCalledTimes(2);
-    // Como mockamos o sucesso na segunda vez, ele deve ter criado o canal internamente
-    // Podemos verificar se o createChannel foi chamado na segunda conexão
-    expect(mockConnection.createChannel).toHaveBeenCalled();
+      const consumeFn = mockChannel.consume.mock.calls[0][1];
+      await consumeFn({
+        content: Buffer.from(JSON.stringify({ type: 'site.add' })),
+        fields: { routingKey: 'site.add' },
+      });
+
+      expect(handler).toHaveBeenCalledWith({ content: { type: 'site.add' }, routingKey: 'site.add' });
+      expect(mockChannel.ack).toHaveBeenCalledTimes(1);
+    });
+
+    it('should nack when routing handler throws', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
+
+      const handler = vi.fn().mockRejectedValue(new Error('boom'));
+      await adapter.subscribeWithRouting('uptime.commands.pending', handler);
+      const consumeFn = mockChannel.consume.mock.calls[0][1];
+
+      await consumeFn({
+        content: Buffer.from(JSON.stringify({ type: 'site.add' })),
+        fields: { routingKey: 'site.add' },
+      });
+
+      expect(mockChannel.nack).toHaveBeenCalledTimes(1);
+    });
+
+    it('should ignore null consumed message', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
+
+      await adapter.subscribeWithRouting('uptime.commands.pending', vi.fn());
+      const consumeFn = mockChannel.consume.mock.calls[0][1];
+
+      await consumeFn(null);
+
+      expect(mockChannel.ack).not.toHaveBeenCalled();
+      expect(mockChannel.nack).not.toHaveBeenCalled();
+    });
+
+    it('should throw if channel is not initialized', async () => {
+      await expect(adapter.subscribeWithRouting('uptime.commands.pending', vi.fn())).rejects.toThrow(
+        'Channel not initialized',
+      );
+    });
   });
 
-  it('should not schedule multiple reconnects if one is pending', async () => {
-    await adapter.connect();
+  describe('subscribe', () => {
+    it('should consume and ack message on success', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
 
-    // Forçar agendamento via método privado (ou simulando evento)
-    // Aqui simulamos dois eventos rápidos antes do timer disparar
-    const errorHandler = mockConnection.on.mock.calls.find((c: any) => c[0] === 'error')[1];
+      const handler = vi.fn().mockResolvedValue(undefined);
+      await adapter.subscribe('uptime.results', handler);
 
-    errorHandler(new Error('Err 1'));
-    errorHandler(new Error('Err 2')); // Deve ser ignorado pois já tem timer
+      const consumeFn = mockChannel.consume.mock.calls[0][1];
+      await consumeFn({
+        content: Buffer.from(JSON.stringify({ ok: true })),
+        fields: { routingKey: 'check.completed' },
+      });
 
-    expect(amqp.connect).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith({ ok: true });
+      expect(mockChannel.ack).toHaveBeenCalledTimes(1);
+    });
 
-    await vi.advanceTimersByTimeAsync(5000);
+    it('should nack message when parsing fails', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
 
-    // Só deve ter reconectado uma vez adicional
-    expect(amqp.connect).toHaveBeenCalledTimes(2);
+      await adapter.subscribe('uptime.results', vi.fn());
+      const consumeFn = mockChannel.consume.mock.calls[0][1];
+      await consumeFn({ content: Buffer.from('not-json'), fields: { routingKey: 'x' } });
+
+      expect(mockChannel.nack).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw if channel is not initialized', async () => {
+      await expect(adapter.subscribe('uptime.results', vi.fn())).rejects.toThrow('Channel not initialized');
+    });
   });
 
-  it('should handle logic when channel is missing (defensive programming)', async () => {
-    // Conecta mas deleta o canal forçadamente para testar
-    await adapter.connect();
-    (adapter as any).channel = null;
+  describe('ack/nack', () => {
+    it('should ack messages when connected', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
 
-    await expect(adapter.publish('ex', 'key', {})).rejects.toThrow('Channel not initialized');
-    await expect(adapter.subscribe('q', vi.fn())).rejects.toThrow('Channel not initialized');
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
+
+      const mockMessage = {};
+      adapter.ack(mockMessage);
+
+      expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
+    });
+
+    it('should nack with requeue option', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
+
+      const mockMessage = {};
+      adapter.nack(mockMessage, true);
+
+      expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
+    });
+
+    it('should no-op ack and nack when channel is missing', () => {
+      expect(() => adapter.ack({})).not.toThrow();
+      expect(() => adapter.nack({}, true)).not.toThrow();
+    });
   });
 
-  // Replicação dos testes essenciais anteriores para garantir o arquivo completo
-  it('should publish message correctly', async () => {
-    await adapter.connect();
-    await adapter.publish('ex', 'key', { a: 1 });
-    expect(mockChannel.publish).toHaveBeenCalled();
+  describe('disconnect', () => {
+    it('should close connections properly', async () => {
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
+
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
+
+      await adapter.disconnect();
+
+      expect(mockChannel.close).toHaveBeenCalled();
+      expect(mockConnection.close).toHaveBeenCalled();
+      expect(adapter.isConnected()).toBe(false);
+    });
+
+    it('should clear pending reconnect timeout on disconnect', async () => {
+      vi.useFakeTimers();
+      const ch1 = createMockChannel();
+      const conn1 = createMockConnection(ch1);
+      mockedAmqp.connect.mockResolvedValue(conn1 as any);
+
+      await adapter.connect();
+      conn1.handlers.error(new Error('lost'));
+
+      await adapter.disconnect();
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(mockedAmqp.connect).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
+    });
   });
 
-  it('should subscribe and ack', async () => {
-    await adapter.connect();
-    const handler = vi.fn();
-    await adapter.subscribe('q', handler);
-    const cb = mockChannel.consume.mock.calls[0][1];
-    await cb({ content: Buffer.from('{}') });
-    expect(handler).toHaveBeenCalled();
-    expect(mockChannel.ack).toHaveBeenCalled();
-  });
+  describe('isConnected', () => {
+    it('should report connection status', async () => {
+      expect(adapter.isConnected()).toBe(false);
 
-  it('should nack on error', async () => {
-    await adapter.connect();
-    await adapter.subscribe('q', vi.fn().mockRejectedValue('err'));
-    const cb = mockChannel.consume.mock.calls[0][1];
-    await cb({ content: Buffer.from('{}') });
-    expect(mockChannel.nack).toHaveBeenCalled();
-  });
+      const mockChannel = createMockChannel();
+      const mockConnection = createMockConnection(mockChannel);
 
-  it('should handle null msg', async () => {
-    await adapter.connect();
-    await adapter.subscribe('q', vi.fn());
-    const cb = mockChannel.consume.mock.calls[0][1];
-    await cb(null);
-    expect(mockChannel.ack).not.toHaveBeenCalled();
-  });
+      mockedAmqp.connect.mockResolvedValue(mockConnection as any);
+      await adapter.connect();
 
-  it('should log error when reconnection fails', async () => {
-    await adapter.connect();
+      expect(adapter.isConnected()).toBe(true);
+    });
 
-    // Get the error handler
-    const errorHandler = mockConnection.on.mock.calls.find((c: any) => c[0] === 'error')?.[1];
-    expect(errorHandler).toBeDefined();
-
-    // Make the next connection attempt fail
-    vi.mocked(amqp.connect).mockRejectedValueOnce(new Error('Reconnection failed'));
-
-    // Trigger the error to schedule reconnection
-    errorHandler(new Error('Connection lost'));
-
-    // Advance time to trigger the reconnection attempt
-    await vi.advanceTimersByTimeAsync(5000);
-
-    // Verify reconnection was attempted (the error is caught and logged)
-    expect(amqp.connect).toHaveBeenCalledTimes(2);
-  });
-
-  it('should disconnect', async () => {
-    await adapter.connect();
-    await adapter.disconnect();
-    expect(mockChannel.close).toHaveBeenCalled();
-    expect(mockConnection.close).toHaveBeenCalled();
-  });
-
-  it('should handle ack when channel is missing', () => {
-    (adapter as any).channel = null;
-    const mockMessage = { content: Buffer.from('{}') };
-    // Should not throw even if channel is null
-    adapter.ack(mockMessage);
-  });
-
-  it('should handle nack when channel is missing', () => {
-    (adapter as any).channel = null;
-    const mockMessage = { content: Buffer.from('{}') };
-    // Should not throw even if channel is null
-    adapter.nack(mockMessage, false);
-  });
-
-  it('should handle disconnect when connection is missing', async () => {
-    await adapter.connect();
-    (adapter as any).connection = null;
-    // Should not throw even if connection is null
-    await adapter.disconnect();
-    expect(mockChannel.close).toHaveBeenCalled();
-  });
-
-  it('should throw when setupTopology called without channel', async () => {
-    (adapter as any).channel = null;
-    // Calling private setupTopology via any
-    await expect((adapter as any).setupTopology()).rejects.toThrow('Channel not initialized');
+    it('should throw when topology is setup without channel', async () => {
+      await expect((adapter as any).setupTopology()).rejects.toThrow('Channel not initialized');
+    });
   });
 });

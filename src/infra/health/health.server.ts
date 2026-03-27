@@ -8,45 +8,45 @@ export class HealthServer {
   constructor(
     private port: number,
     private healthService: HealthService,
-    private logger: Logger
+    private logger: Logger,
   ) {}
 
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.server = createServer(async (req, res) => {
-        // CORS headers for orchestration platforms
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Content-Type', 'application/json');
 
         if (req.url === '/health' && req.method === 'GET') {
           try {
             const status = await this.healthService.check();
-
             const statusCode = status.status === 'healthy' ? 200 : 503;
             res.writeHead(statusCode);
             res.end(JSON.stringify(status));
           } catch (error) {
             this.logger.error(error, 'Health check failed');
             res.writeHead(500);
-            res.end(
-              JSON.stringify({
-                status: 'unhealthy',
-                error: error instanceof Error ? error.message : 'Unknown error',
-              })
-            );
+            res.end(JSON.stringify({
+              status: 'unhealthy',
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }));
           }
           return;
         }
 
         if (req.url === '/ready' && req.method === 'GET') {
-          const status = await this.healthService.check();
-          const statusCode = status.status === 'healthy' ? 200 : 503;
-          res.writeHead(statusCode);
-          res.end(JSON.stringify({ ready: status.status === 'healthy' }));
+          try {
+            const ready = await this.healthService.isReady();
+            const statusCode = ready ? 200 : 503;
+            res.writeHead(statusCode);
+            res.end(JSON.stringify({ ready }));
+          } catch (error) {
+            res.writeHead(503);
+            res.end(JSON.stringify({ ready: false }));
+          }
           return;
         }
 
-        // 404 for unknown paths
         res.writeHead(404);
         res.end(JSON.stringify({ error: 'Not found' }));
       });

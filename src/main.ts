@@ -1,63 +1,99 @@
-import { existsSync, mkdirSync } from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 import { env } from './infra/config/env';
 import { createServiceLogger } from './infra/config/logger';
 import { RabbitMQAdapter } from './infra/adapters/rabbitmq.adapter';
+import { CheckerFactory } from './infra/adapters/checkers/checker.factory';
+import { TickScheduler } from './infra/scheduler/tick-scheduler';
+import { MonitorManager } from './application/services/monitor-manager.service';
+import { WideEventEmitter } from './infra/observability/wide-event.emitter';
 import { HealthService } from './infra/health/health.service';
 import { HealthServer } from './infra/health/health.server';
 
 const log = createServiceLogger('bootstrap');
 
 async function bootstrap() {
-  log.info('Starting SiteOne Crawler WORKER...');
-  log.info({ maxConcurrency: env.MAX_CONCURRENT_JOBS }, 'Worker configuration');
+  log.info('Starting Uptime Checker Worker...');
 
-  // 1. Setup Environment
-  if (!existsSync(env.CRAWLER_PATH)) {
-    log.error({ path: env.CRAWLER_PATH }, 'Crawler binary missing');
-    process.exit(1);
-  }
-  if (!existsSync(env.TMP_DIR)) {
-    mkdirSync(env.TMP_DIR, { recursive: true });
-  }
+  // 1. Initialize adapters
+  const rabbitMQAdapter = new RabbitMQAdapter(env.RABBITMQ_URL);
+  const checkerFactory = new CheckerFactory();
+  const scheduler = new TickScheduler(env.TICK_INTERVAL_MS, env.MAX_CONCURRENT_CHECKS);
+  const wideEventEmitter = new WideEventEmitter();
 
-  const rabbitMQAdapter = new RabbitMQAdapter(
-    env.RABBITMQ_URL,
-    env.MAX_CONCURRENT_JOBS
+  // 2. Initialize application service
+  const monitorManager = new MonitorManager(
+    scheduler,
+    checkerFactory,
+    rabbitMQAdapter,
+    wideEventEmitter,
   );
 
-  // 3b. Initialize Health Service
+  // 3. Initialize health
   const healthService = new HealthService(rabbitMQAdapter);
-  const healthServer = new HealthServer(3000, healthService, log);
+  healthService.setMetricsProvider(monitorManager);
+  const healthServer = new HealthServer(env.HEALTH_PORT, healthService, log);
 
-  // 4. Start Connections
   try {
-    log.info('Connecting to services');
-    log.info({ minioInternal: env.MINIO_ENDPOINT, minioPublic: env.MINIO_PUBLIC_ENDPOINT || env.MINIO_ENDPOINT }, 'MinIO endpoints');
-
+    // 4. Connect to RabbitMQ
     await rabbitMQAdapter.connect();
 
-    // 4b. Start Health Server
+    // 5. Start health server
     await healthServer.start();
 
-    // 5. Start Consuming
-    await rabbitMQAdapter.subscribe('crawler.jobs.pending', async (msg) => {
-      healthService.recordJobProcessed();
+    // 6. Subscribe to commands with routing
+    await rabbitMQAdapter.subscribeWithRouting('uptime.commands.pending', async (msg) => {
+      switch (msg.routingKey) {
+        case 'site.add':
+          monitorManager.addMonitor(msg.content);
+          break;
+        case 'site.update':
+          monitorManager.updateMonitor(msg.content);
+          break;
+        case 'site.remove':
+          monitorManager.removeMonitor(msg.content);
+          break;
+        default:
+          log.warn({ routingKey: msg.routingKey }, 'Unknown routing key');
+      }
     });
 
-    log.info('Worker is running and waiting for jobs');
+    // 7. Start scheduler
+    scheduler.start();
+
+    // 8. Publish worker-started event (bootstrap sync)
+    await rabbitMQAdapter.publish('uptime.results', 'worker.started', {
+      started_at: new Date().toISOString(),
+      instance_id: uuidv4(),
+    });
+
+    log.info({
+      healthPort: env.HEALTH_PORT,
+      maxConcurrentChecks: env.MAX_CONCURRENT_CHECKS,
+      tickIntervalMs: env.TICK_INTERVAL_MS,
+    }, 'Worker is running');
   } catch (error) {
     log.error(error, 'Bootstrap failed');
     process.exit(1);
   }
 
-  // 6. Graceful Shutdown
+  // 9. Graceful shutdown
   const shutdown = async (signal: string) => {
     log.info(`Received ${signal}. Shutting down...`);
 
-    // Close health server
-    await healthServer.stop();
+    // Stop scheduler (no new checks)
+    scheduler.stop();
 
-    // Close RabbitMQ connection
+    // Wait for in-flight checks (max 10s)
+    const maxWait = Date.now() + 10_000;
+    while (scheduler.getActiveChecks() > 0 && Date.now() < maxWait) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    if (scheduler.getActiveChecks() > 0) {
+      log.warn({ activeChecks: scheduler.getActiveChecks() }, 'Shutdown timeout, some checks still in-flight');
+    }
+
+    await healthServer.stop();
     await rabbitMQAdapter.disconnect();
 
     log.info('Shutdown complete');
