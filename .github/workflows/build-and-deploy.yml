@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    name: Run Tests & Coverage Check
+    name: Run Quality Checks & Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -49,8 +49,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run type check
+        run: pnpm run typecheck
+
+      - name: Run lint
+        run: pnpm run lint
+
       - name: Run tests with coverage
-        # Se a cobertura for < 95%, o vitest retorna exit 1 e o job falha aqui
         run: pnpm run test:coverage
 
       - name: Upload coverage reports
