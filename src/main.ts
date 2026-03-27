@@ -15,7 +15,7 @@ async function bootstrap() {
   log.info('Starting Uptime Checker Worker...');
 
   // 1. Initialize adapters
-  const rabbitMQAdapter = new RabbitMQAdapter(env.RABBITMQ_URL);
+  const rabbitMQAdapter = new RabbitMQAdapter(env.RABBITMQ_URL!);
   const checkerFactory = new CheckerFactory();
   const scheduler = new TickScheduler(env.TICK_INTERVAL_MS, env.MAX_CONCURRENT_CHECKS);
   const wideEventEmitter = new WideEventEmitter();
