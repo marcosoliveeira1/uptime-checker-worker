@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+siteone-crawler/tmp
+siteone-crawler/log
+data/
+tmp/
+logs/
+coverage/
