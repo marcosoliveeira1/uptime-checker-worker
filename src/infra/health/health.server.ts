@@ -9,7 +9,7 @@ export class HealthServer {
     private port: number,
     private healthService: HealthService,
     private logger: Logger,
-  ) {}
+  ) { }
 
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -40,7 +40,7 @@ export class HealthServer {
             const statusCode = ready ? 200 : 503;
             res.writeHead(statusCode);
             res.end(JSON.stringify({ ready }));
-          } catch (error) {
+          } catch {
             res.writeHead(503);
             res.end(JSON.stringify({ ready: false }));
           }
