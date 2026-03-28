@@ -1,131 +1,131 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { TcpChecker } from './tcp.checker';
-import { MonitorConfig } from '../../../domain/value-objects/monitor-config';
-import net from 'node:net';
-import { EventEmitter } from 'node:events';
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { TcpChecker } from "./tcp.checker";
+import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
+import net from "node:net";
+import { EventEmitter } from "node:events";
 
 function createConfig(overrides: Partial<MonitorConfig> = {}): MonitorConfig {
-  return {
-    monitorId: 1,
-    siteId: 10,
-    workspaceId: 100,
-    url: 'tcp://example.com:3306',
-    protocol: 'tcp',
-    checkIntervalSeconds: 60,
-    timeoutSeconds: 5,
-    ...overrides,
-  };
+    return {
+        monitorId: 1,
+        siteId: 10,
+        workspaceId: 100,
+        url: "tcp://example.com:3306",
+        protocol: "tcp",
+        checkIntervalSeconds: 60,
+        timeoutSeconds: 5,
+        ...overrides,
+    };
 }
 
-describe('TcpChecker', () => {
-  const checker = new TcpChecker();
+describe("TcpChecker", () => {
+    const checker = new TcpChecker();
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('should return UP on successful connect', async () => {
-    const mockSocket = new EventEmitter() as any;
-    mockSocket.remoteAddress = '1.2.3.4';
-    mockSocket.setTimeout = vi.fn();
-    mockSocket.destroy = vi.fn();
-
-    vi.spyOn(net, 'connect').mockImplementation((_opts: any, cb: any) => {
-      process.nextTick(() => cb());
-      return mockSocket;
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
-    const result = await checker.check(createConfig());
+    it("should return UP on successful connect", async () => {
+        const mockSocket = new EventEmitter() as any;
+        mockSocket.remoteAddress = "1.2.3.4";
+        mockSocket.setTimeout = vi.fn();
+        mockSocket.destroy = vi.fn();
 
-    expect(result.status).toBe('up');
-    expect(result.ipAddress).toBe('1.2.3.4');
-    expect(result.errorMessage).toBeNull();
-  });
+        vi.spyOn(net, "connect").mockImplementation((_opts: any, cb: any) => {
+            process.nextTick(() => cb());
+            return mockSocket;
+        });
 
-  it('should return DOWN on connection error', async () => {
-    const mockSocket = new EventEmitter() as any;
-    mockSocket.setTimeout = vi.fn();
-    mockSocket.destroy = vi.fn();
+        const result = await checker.check(createConfig());
 
-    vi.spyOn(net, 'connect').mockImplementation((_opts: any, _cb: any) => {
-      process.nextTick(() => mockSocket.emit('error', new Error('ECONNREFUSED')));
-      return mockSocket;
+        expect(result.status).toBe("up");
+        expect(result.ipAddress).toBe("1.2.3.4");
+        expect(result.errorMessage).toBeNull();
     });
 
-    const result = await checker.check(createConfig());
+    it("should return DOWN on connection error", async () => {
+        const mockSocket = new EventEmitter() as any;
+        mockSocket.setTimeout = vi.fn();
+        mockSocket.destroy = vi.fn();
 
-    expect(result.status).toBe('down');
-    expect(result.errorMessage).toBe('ECONNREFUSED');
-  });
+        vi.spyOn(net, "connect").mockImplementation((_opts: any, _cb: any) => {
+            process.nextTick(() => mockSocket.emit("error", new Error("ECONNREFUSED")));
+            return mockSocket;
+        });
 
-  it('should return DOWN on timeout', async () => {
-    const mockSocket = new EventEmitter() as any;
-    mockSocket.setTimeout = vi.fn();
-    mockSocket.destroy = vi.fn();
+        const result = await checker.check(createConfig());
 
-    vi.spyOn(net, 'connect').mockImplementation((_opts: any, _cb: any) => {
-      process.nextTick(() => mockSocket.emit('timeout'));
-      return mockSocket;
+        expect(result.status).toBe("down");
+        expect(result.errorMessage).toBe("ECONNREFUSED");
     });
 
-    const result = await checker.check(createConfig());
+    it("should return DOWN on timeout", async () => {
+        const mockSocket = new EventEmitter() as any;
+        mockSocket.setTimeout = vi.fn();
+        mockSocket.destroy = vi.fn();
 
-    expect(result.status).toBe('down');
-    expect(result.errorMessage).toContain('Timeout');
-  });
+        vi.spyOn(net, "connect").mockImplementation((_opts: any, _cb: any) => {
+            process.nextTick(() => mockSocket.emit("timeout"));
+            return mockSocket;
+        });
 
-  it('should parse port from URL correctly', async () => {
-    const mockSocket = new EventEmitter() as any;
-    mockSocket.remoteAddress = '1.2.3.4';
-    mockSocket.setTimeout = vi.fn();
-    mockSocket.destroy = vi.fn();
+        const result = await checker.check(createConfig());
 
-    const connectSpy = vi.spyOn(net, 'connect').mockImplementation((_opts: any, cb: any) => {
-      process.nextTick(() => cb());
-      return mockSocket;
+        expect(result.status).toBe("down");
+        expect(result.errorMessage).toContain("Timeout");
     });
 
-    await checker.check(createConfig({ url: 'tcp://db.example.com:5432' }));
+    it("should parse port from URL correctly", async () => {
+        const mockSocket = new EventEmitter() as any;
+        mockSocket.remoteAddress = "1.2.3.4";
+        mockSocket.setTimeout = vi.fn();
+        mockSocket.destroy = vi.fn();
 
-    expect(connectSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ host: 'db.example.com', port: 5432 }),
-      expect.any(Function),
-    );
-  });
+        const connectSpy = vi.spyOn(net, "connect").mockImplementation((_opts: any, cb: any) => {
+            process.nextTick(() => cb());
+            return mockSocket;
+        });
 
-  it('should handle default port when not specified', async () => {
-    const mockSocket = new EventEmitter() as any;
-    mockSocket.remoteAddress = '1.2.3.4';
-    mockSocket.setTimeout = vi.fn();
-    mockSocket.destroy = vi.fn();
+        await checker.check(createConfig({ url: "tcp://db.example.com:5432" }));
 
-    const connectSpy = vi.spyOn(net, 'connect').mockImplementation((_opts: any, cb: any) => {
-      process.nextTick(() => cb());
-      return mockSocket;
+        expect(connectSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ host: "db.example.com", port: 5432 }),
+            expect.any(Function),
+        );
     });
 
-    await checker.check(createConfig({ url: 'tcp://db.example.com' }));
+    it("should handle default port when not specified", async () => {
+        const mockSocket = new EventEmitter() as any;
+        mockSocket.remoteAddress = "1.2.3.4";
+        mockSocket.setTimeout = vi.fn();
+        mockSocket.destroy = vi.fn();
 
-    expect(connectSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ host: 'db.example.com', port: 80 }),
-      expect.any(Function),
-    );
-  });
+        const connectSpy = vi.spyOn(net, "connect").mockImplementation((_opts: any, cb: any) => {
+            process.nextTick(() => cb());
+            return mockSocket;
+        });
 
-  it('should handle undefined remoteAddress', async () => {
-    const mockSocket = new EventEmitter() as any;
-    mockSocket.remoteAddress = undefined;
-    mockSocket.setTimeout = vi.fn();
-    mockSocket.destroy = vi.fn();
+        await checker.check(createConfig({ url: "tcp://db.example.com" }));
 
-    vi.spyOn(net, 'connect').mockImplementation((_opts: any, cb: any) => {
-      process.nextTick(() => cb());
-      return mockSocket;
+        expect(connectSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ host: "db.example.com", port: 80 }),
+            expect.any(Function),
+        );
     });
 
-    const result = await checker.check(createConfig());
+    it("should handle undefined remoteAddress", async () => {
+        const mockSocket = new EventEmitter() as any;
+        mockSocket.remoteAddress = undefined;
+        mockSocket.setTimeout = vi.fn();
+        mockSocket.destroy = vi.fn();
 
-    expect(result.status).toBe('up');
-    expect(result.ipAddress).toBeNull();
-  });
+        vi.spyOn(net, "connect").mockImplementation((_opts: any, cb: any) => {
+            process.nextTick(() => cb());
+            return mockSocket;
+        });
+
+        const result = await checker.check(createConfig());
+
+        expect(result.status).toBe("up");
+        expect(result.ipAddress).toBeNull();
+    });
 });

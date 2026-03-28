@@ -1,56 +1,56 @@
 services:
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: uptime-rabbitmq-dev
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    networks:
-      - sitewatch
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        container_name: uptime-rabbitmq-dev
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        environment:
+            RABBITMQ_DEFAULT_USER: admin
+            RABBITMQ_DEFAULT_PASS: admin
+        volumes:
+            - rabbitmq-data:/var/lib/rabbitmq
+        networks:
+            - sitewatch
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
-  uptime-checker-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: uptime-checker-worker-dev
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    environment:
-      NODE_ENV: development
-      RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672
-      MAX_CONCURRENT_CHECKS: 50
-      TICK_INTERVAL_MS: 1000
-      DEFAULT_TIMEOUT_MS: 30000
-      DEGRADED_THRESHOLD_MS: 5000
-      HEALTH_PORT: 3001
-      LOG_LEVEL: debug
-    volumes:
-      - ./src:/app/src:ro
-      - ./tsconfig.json:/app/tsconfig.json:ro
-      - ./tsconfig.build.json:/app/tsconfig.build.json:ro
-      - /app/node_modules
-    ports:
-      - "3001:3001"
-    networks:
-      - sitewatch
-    restart: unless-stopped
+    uptime-checker-worker:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: development
+        container_name: uptime-checker-worker-dev
+        depends_on:
+            rabbitmq:
+                condition: service_healthy
+        environment:
+            NODE_ENV: development
+            RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672
+            MAX_CONCURRENT_CHECKS: 50
+            TICK_INTERVAL_MS: 1000
+            DEFAULT_TIMEOUT_MS: 30000
+            DEGRADED_THRESHOLD_MS: 5000
+            HEALTH_PORT: 3001
+            LOG_LEVEL: debug
+        volumes:
+            - ./src:/app/src:ro
+            - ./tsconfig.json:/app/tsconfig.json:ro
+            - ./tsconfig.build.json:/app/tsconfig.build.json:ro
+            - /app/node_modules
+        ports:
+            - "3001:3001"
+        networks:
+            - sitewatch
+        restart: unless-stopped
 
 networks:
-  sitewatch:
-    name: sitewatch-network
-    driver: bridge
+    sitewatch:
+        name: sitewatch-network
+        driver: bridge
 
 volumes:
-  rabbitmq-data:
+    rabbitmq-data:

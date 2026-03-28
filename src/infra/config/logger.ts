@@ -1,48 +1,48 @@
-import pino from 'pino';
+import pino from "pino";
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = process.env.NODE_ENV !== "production";
 export const isDebugLoggingEnabled = isDevelopment;
 
 export const logger = pino(
-  {
-    level: process.env.LOG_LEVEL || 'info',
-    timestamp: pino.stdTimeFunctions.isoTime,
-  },
-  isDevelopment
-    ? pino.transport({
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          ignore: 'pid,hostname',
-          singleLine: false,
-        },
-      })
-    : undefined,
+    {
+        level: process.env.LOG_LEVEL || "info",
+        timestamp: pino.stdTimeFunctions.isoTime,
+    },
+    isDevelopment
+        ? pino.transport({
+              target: "pino-pretty",
+              options: {
+                  colorize: true,
+                  translateTime: "SYS:standard",
+                  ignore: "pid,hostname",
+                  singleLine: false,
+              },
+          })
+        : undefined,
 );
 
 function createConditionalChildLogger(bindings: Record<string, string>) {
-  const child = logger.child(bindings);
+    const child = logger.child(bindings);
 
-  if (!isDebugLoggingEnabled) {
-    child.level = 'silent';
-  }
+    if (!isDebugLoggingEnabled) {
+        child.level = "silent";
+    }
 
-  return child;
+    return child;
 }
 
 export function createServiceLogger(service: string) {
-  return createConditionalChildLogger({ service, context: 'service' });
+    return createConditionalChildLogger({ service, context: "service" });
 }
 
 export function createAdapterLogger(adapter: string) {
-  return createConditionalChildLogger({ adapter, context: 'adapter' });
+    return createConditionalChildLogger({ adapter, context: "adapter" });
 }
 
 export function createCheckerLogger(protocol: string) {
-  return createConditionalChildLogger({ protocol, context: 'checker' });
+    return createConditionalChildLogger({ protocol, context: "checker" });
 }
 
 export function createSchedulerLogger() {
-  return createConditionalChildLogger({ context: 'scheduler' });
+    return createConditionalChildLogger({ context: "scheduler" });
 }

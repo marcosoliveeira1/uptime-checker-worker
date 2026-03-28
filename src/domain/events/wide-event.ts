@@ -1,31 +1,31 @@
-import { Protocol } from '../value-objects/protocol';
-import { UptimeStatus } from '../value-objects/uptime-status';
+import { Protocol } from "../value-objects/protocol";
+import { UptimeStatus } from "../value-objects/uptime-status";
 
 export interface UptimeWideEvent {
-  service: 'uptime-checker-worker';
-  operation: 'check.execute';
-  timestamp: string;
-  duration: number;
+    service: "uptime-checker-worker";
+    operation: "check.execute";
+    timestamp: string;
+    duration: number;
 
-  monitorId: number;
-  siteId: number;
-  workspaceId: number;
-  protocol: Protocol;
-  url: string;
+    monitorId: number;
+    siteId: number;
+    workspaceId: number;
+    protocol: Protocol;
+    url: string;
 
-  status: UptimeStatus;
-  responseTimeMs: number | null;
-  statusCode: number | null;
-  tlsCertDaysRemaining: number | null;
+    status: UptimeStatus;
+    responseTimeMs: number | null;
+    statusCode: number | null;
+    tlsCertDaysRemaining: number | null;
 
-  outcome: 'ok' | 'error';
-  error?: {
-    message: string;
-    code?: string;
-    stack?: string;
-  };
+    outcome: "ok" | "error";
+    error?: {
+        message: string;
+        code?: string;
+        stack?: string;
+    };
 
-  environment?: {
-    nodeEnv?: string;
-  };
+    environment?: {
+        nodeEnv?: string;
+    };
 }

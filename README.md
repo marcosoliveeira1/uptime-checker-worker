@@ -61,16 +61,16 @@ docker compose logs -f worker
 
 ### Variáveis de Ambiente
 
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `NODE_ENV` | `development` | Ambiente (`development`, `production`, `test`) |
-| `RABBITMQ_URL` | — | URL de conexão RabbitMQ (obrigatório em produção) |
-| `MAX_CONCURRENT_CHECKS` | `50` | Máximo de checks rodando em paralelo |
-| `TICK_INTERVAL_MS` | `1000` | Intervalo do scheduler interno (ms) |
-| `DEFAULT_TIMEOUT_MS` | `30000` | Timeout padrão por check (ms) |
-| `DEGRADED_THRESHOLD_MS` | `5000` | Limiar global para status `degraded` (ms). Substituível por monitor via `slow_threshold_ms`. |
-| `HEALTH_PORT` | `3001` | Porta do servidor de health check HTTP |
-| `LOG_LEVEL` | `info` | Nível de log (pino) |
+| Variável                | Padrão        | Descrição                                                                                    |
+| ----------------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| `NODE_ENV`              | `development` | Ambiente (`development`, `production`, `test`)                                               |
+| `RABBITMQ_URL`          | —             | URL de conexão RabbitMQ (obrigatório em produção)                                            |
+| `MAX_CONCURRENT_CHECKS` | `50`          | Máximo de checks rodando em paralelo                                                         |
+| `TICK_INTERVAL_MS`      | `1000`        | Intervalo do scheduler interno (ms)                                                          |
+| `DEFAULT_TIMEOUT_MS`    | `30000`       | Timeout padrão por check (ms)                                                                |
+| `DEGRADED_THRESHOLD_MS` | `5000`        | Limiar global para status `degraded` (ms). Substituível por monitor via `slow_threshold_ms`. |
+| `HEALTH_PORT`           | `3001`        | Porta do servidor de health check HTTP                                                       |
+| `LOG_LEVEL`             | `info`        | Nível de log (pino)                                                                          |
 
 ---
 
@@ -82,21 +82,21 @@ docker compose logs -f worker
 
 ```json
 {
-  "monitor_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-  "site_id": "01ARZ3NDEKTSV4RRFFQ69G5FB0",
-  "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FB1",
-  "url": "https://example.com",
-  "protocol": "https",
-  "check_interval_seconds": 60,
-  "timeout_seconds": 30,
-  "expected_status_code": 200,
-  "accepted_status_codes": [200, 201],
-  "follow_redirects": true,
-  "slow_threshold_ms": 2000,
-  "check_ssl": true,
-  "ssl_expiry_reminder_days": 30,
-  "keyword_check": "Welcome",
-  "idempotency_key": "add-abc-1234"
+    "monitor_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "site_id": "01ARZ3NDEKTSV4RRFFQ69G5FB0",
+    "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FB1",
+    "url": "https://example.com",
+    "protocol": "https",
+    "check_interval_seconds": 60,
+    "timeout_seconds": 30,
+    "expected_status_code": 200,
+    "accepted_status_codes": [200, 201],
+    "follow_redirects": true,
+    "slow_threshold_ms": 2000,
+    "check_ssl": true,
+    "ssl_expiry_reminder_days": 30,
+    "keyword_check": "Welcome",
+    "idempotency_key": "add-abc-1234"
 }
 ```
 
@@ -106,8 +106,8 @@ docker compose logs -f worker
 
 ```json
 {
-  "monitor_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-  "idempotency_key": "remove-abc-5678"
+    "monitor_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "idempotency_key": "remove-abc-5678"
 }
 ```
 
@@ -119,37 +119,37 @@ docker compose logs -f worker
 
 ```json
 {
-  "monitor_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-  "site_id": "01ARZ3NDEKTSV4RRFFQ69G5FB0",
-  "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FB1",
-  "status": "up",
-  "response_time_ms": 143,
-  "status_code": 200,
-  "error_message": null,
-  "ip_address": "93.184.216.34",
-  "tls_certificate_days_remaining": 87,
-  "ssl_expiry_warning": false,
-  "checked_at": "2026-03-28T21:00:00.000Z",
-  "idempotency_key": "01ARZ3NDEKTSV4RRFFQ69G5FAV:29400"
+    "monitor_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "site_id": "01ARZ3NDEKTSV4RRFFQ69G5FB0",
+    "workspace_id": "01ARZ3NDEKTSV4RRFFQ69G5FB1",
+    "status": "up",
+    "response_time_ms": 143,
+    "status_code": 200,
+    "error_message": null,
+    "ip_address": "93.184.216.34",
+    "tls_certificate_days_remaining": 87,
+    "ssl_expiry_warning": false,
+    "checked_at": "2026-03-28T21:00:00.000Z",
+    "idempotency_key": "01ARZ3NDEKTSV4RRFFQ69G5FAV:29400"
 }
 ```
 
-| Campo | Descrição |
-|---|---|
-| `status` | `up`, `down` ou `degraded` |
+| Campo                | Descrição                                                                  |
+| -------------------- | -------------------------------------------------------------------------- |
+| `status`             | `up`, `down` ou `degraded`                                                 |
 | `ssl_expiry_warning` | `true` quando `tls_certificate_days_remaining <= ssl_expiry_reminder_days` |
-| `idempotency_key` | `{monitor_id}:{minuto_epoch}` — garante deduplicação no consumer |
+| `idempotency_key`    | `{monitor_id}:{minuto_epoch}` — garante deduplicação no consumer           |
 
 ---
 
 ## Comportamento por Protocolo
 
-| Protocolo | O que verifica | `status_code` | `tls_certificate_days_remaining` |
-|---|---|---|---|
-| `http` / `https` | Status HTTP, keyword, tempo de resposta, certificado TLS | ✅ | ✅ (apenas `https`) |
-| `tcp` | Abertura de socket TCP na porta | null | null |
-| `ping` | ICMP ping ao host (RTT via saída do sistema) | null | null |
-| `dns` | Resolução DNS A do hostname | null | null |
+| Protocolo        | O que verifica                                           | `status_code` | `tls_certificate_days_remaining` |
+| ---------------- | -------------------------------------------------------- | ------------- | -------------------------------- |
+| `http` / `https` | Status HTTP, keyword, tempo de resposta, certificado TLS | ✅            | ✅ (apenas `https`)              |
+| `tcp`            | Abertura de socket TCP na porta                          | null          | null                             |
+| `ping`           | ICMP ping ao host (RTT via saída do sistema)             | null          | null                             |
+| `dns`            | Resolução DNS A do hostname                              | null          | null                             |
 
 ### Lógica de status (HTTP/HTTPS)
 
@@ -231,13 +231,12 @@ GET /health
 
 ```json
 {
-  "status": "ok",
-  "monitorsActive": 42,
-  "checksTotal": 3600,
-  "checksFailed": 12,
-  "uptime": 3661.4
+    "status": "ok",
+    "monitorsActive": 42,
+    "checksTotal": 3600,
+    "checksFailed": 12,
+    "uptime": 3661.4
 }
 ```
 
 Usado pelo Docker para liveness probe (`scripts/healthcheck.js`).
-

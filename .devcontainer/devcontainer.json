@@ -1,25 +1,19 @@
 {
-	"name": "SEO Crawler Worker - Dev",
-	"dockerComposeFile": "../docker-compose.dev.yml",
-	"service": "crawler-worker",
-	"workspaceFolder": "/app",
-	"shutdownAction": "stopCompose",
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"dbaeumer.vscode-eslint",
-				"esbenp.prettier-vscode",
-				"ms-vscode.vscode-typescript-next",
-				"ms-vscode.js-debug"
-			]
-		}
-	},
-	"postCreateCommand": "npm install",
-	"forwardPorts": [
-		9229,
-		5672,
-		15672,
-		9000,
-		9001
-	]
+    "name": "SEO Crawler Worker - Dev",
+    "dockerComposeFile": "../docker-compose.dev.yml",
+    "service": "crawler-worker",
+    "workspaceFolder": "/app",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "ms-vscode.vscode-typescript-next",
+                "ms-vscode.js-debug"
+            ]
+        }
+    },
+    "postCreateCommand": "npm install",
+    "forwardPorts": [9229, 5672, 15672, 9000, 9001]
 }
