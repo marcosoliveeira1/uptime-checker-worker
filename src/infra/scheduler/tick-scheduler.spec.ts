@@ -16,31 +16,31 @@ describe("TickScheduler", () => {
 
     it("should add a monitor and track active count", () => {
         const callback = vi.fn().mockResolvedValue(undefined);
-        scheduler.add(1, 5000, callback);
+        scheduler.add("mon_1", 5000, callback);
         expect(scheduler.getActiveCount()).toBe(1);
     });
 
     it("should remove a monitor", () => {
         const callback = vi.fn().mockResolvedValue(undefined);
-        scheduler.add(1, 5000, callback);
-        scheduler.remove(1);
+        scheduler.add("mon_1", 5000, callback);
+        scheduler.remove("mon_1");
         expect(scheduler.getActiveCount()).toBe(0);
     });
 
     it("should update a monitor interval", () => {
         const callback = vi.fn().mockResolvedValue(undefined);
-        scheduler.add(1, 5000, callback);
-        scheduler.update(1, 10000);
+        scheduler.add("mon_1", 5000, callback);
+        scheduler.update("mon_1", 10000);
         expect(scheduler.getActiveCount()).toBe(1);
     });
 
     it("should not throw when updating unknown monitor", () => {
-        expect(() => scheduler.update(999, 5000)).not.toThrow();
+        expect(() => scheduler.update("unknown", 5000)).not.toThrow();
     });
 
     it("should fire callback when monitor is due", async () => {
         const callback = vi.fn().mockResolvedValue(undefined);
-        scheduler.add(1, 2000, callback);
+        scheduler.add("mon_1", 2000, callback);
         scheduler.start();
 
         // Advance past interval (2s) + one tick (1s)
@@ -51,7 +51,7 @@ describe("TickScheduler", () => {
 
     it("should not fire callback before interval", async () => {
         const callback = vi.fn().mockResolvedValue(undefined);
-        scheduler.add(1, 5000, callback);
+        scheduler.add("mon_1", 5000, callback);
         scheduler.start();
 
         await vi.advanceTimersByTimeAsync(3000);
@@ -71,9 +71,9 @@ describe("TickScheduler", () => {
             activeCount--;
         });
 
-        scheduler2.add(1, 1000, slowCallback);
-        scheduler2.add(2, 1000, slowCallback);
-        scheduler2.add(3, 1000, slowCallback);
+        scheduler2.add("mon_1", 1000, slowCallback);
+        scheduler2.add("mon_2", 1000, slowCallback);
+        scheduler2.add("mon_3", 1000, slowCallback);
         scheduler2.start();
 
         await vi.advanceTimersByTimeAsync(2000);
@@ -86,7 +86,7 @@ describe("TickScheduler", () => {
 
     it("should stop the scheduler", async () => {
         const callback = vi.fn().mockResolvedValue(undefined);
-        scheduler.add(1, 1000, callback);
+        scheduler.add("mon_1", 1000, callback);
         scheduler.start();
         scheduler.stop();
 
@@ -109,7 +109,7 @@ describe("TickScheduler", () => {
 
     it("should handle callback rejection gracefully", async () => {
         const failingCallback = vi.fn().mockRejectedValue(new Error("Callback failed"));
-        scheduler.add(1, 1000, failingCallback);
+        scheduler.add("mon_1", 1000, failingCallback);
         scheduler.start();
 
         await vi.advanceTimersByTimeAsync(2000);
@@ -122,8 +122,8 @@ describe("TickScheduler", () => {
         const callback1 = vi.fn().mockResolvedValue(undefined);
         const callback2 = vi.fn().mockResolvedValue(undefined);
 
-        scheduler.add(1, 5000, callback1);
-        scheduler.add(2, 2000, callback2);
+        scheduler.add("mon_1", 5000, callback1);
+        scheduler.add("mon_2", 2000, callback2);
         scheduler.start();
 
         await vi.advanceTimersByTimeAsync(3000);
@@ -146,26 +146,26 @@ describe("TickScheduler", () => {
     });
 
     it("should handle remove of non-existent monitor gracefully", () => {
-        expect(() => scheduler.remove(999)).not.toThrow();
+        expect(() => scheduler.remove("unknown")).not.toThrow();
     });
 
     it("should execute oldest due monitors first when respecting concurrency", async () => {
         const scheduler2 = new TickScheduler(100, 1);
-        const execOrder: number[] = [];
+        const execOrder: string[] = [];
 
-        scheduler2.add(1, 100, async () => {
-            execOrder.push(1);
+        scheduler2.add("mon_1", 100, async () => {
+            execOrder.push("mon_1");
             await new Promise((r) => setTimeout(r, 150));
         });
-        scheduler2.add(2, 100, async () => {
-            execOrder.push(2);
+        scheduler2.add("mon_2", 100, async () => {
+            execOrder.push("mon_2");
             await new Promise((r) => setTimeout(r, 150));
         });
 
         scheduler2.start();
         await vi.advanceTimersByTimeAsync(500);
 
-        expect(execOrder[0]).toBe(1);
+        expect(execOrder[0]).toBe("mon_1");
         scheduler2.stop();
     });
 });

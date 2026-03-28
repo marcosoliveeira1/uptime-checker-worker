@@ -7,9 +7,9 @@ export interface UptimeWideEvent {
     timestamp: string;
     duration: number;
 
-    monitorId: number;
-    siteId: number;
-    workspaceId: number;
+    monitorId: string;
+    siteId: string;
+    workspaceId: string;
     protocol: Protocol;
     url: string;
 

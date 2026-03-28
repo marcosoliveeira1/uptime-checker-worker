@@ -12,9 +12,9 @@ const mockedExec = vi.mocked(exec);
 
 function createConfig(overrides: Partial<MonitorConfig> = {}): MonitorConfig {
     return {
-        monitorId: 1,
-        siteId: 10,
-        workspaceId: 100,
+        monitorId: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        siteId: "site_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+        workspaceId: "ws_01ARZ3NDEKTSV4RRFFQ69G5FB1",
         url: "http://example.com",
         protocol: "ping",
         checkIntervalSeconds: 60,

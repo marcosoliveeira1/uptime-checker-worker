@@ -10,16 +10,16 @@ interface SchedulerEntry {
 }
 
 export class TickScheduler implements IMonitorScheduler {
-    private readonly monitors = new Map<number, SchedulerEntry>();
+    private readonly monitors = new Map<string, SchedulerEntry>();
     private tickTimer: NodeJS.Timeout | null = null;
     private activeChecks = 0;
 
     constructor(
         private readonly tickIntervalMs: number = 1000,
         private readonly maxConcurrentChecks: number = 50,
-    ) {}
+    ) { }
 
-    add(monitorId: number, intervalMs: number, callback: () => Promise<void>): void {
+    add(monitorId: string, intervalMs: number, callback: () => Promise<void>): void {
         const now = Date.now();
         this.monitors.set(monitorId, {
             intervalMs,
@@ -29,7 +29,7 @@ export class TickScheduler implements IMonitorScheduler {
         log.debug({ monitorId, intervalMs }, "Monitor added to scheduler");
     }
 
-    update(monitorId: number, intervalMs: number): void {
+    update(monitorId: string, intervalMs: number): void {
         const entry = this.monitors.get(monitorId);
         if (!entry) {
             log.warn({ monitorId }, "Cannot update unknown monitor");
@@ -40,7 +40,7 @@ export class TickScheduler implements IMonitorScheduler {
         log.debug({ monitorId, intervalMs }, "Monitor updated in scheduler");
     }
 
-    remove(monitorId: number): void {
+    remove(monitorId: string): void {
         this.monitors.delete(monitorId);
         log.debug({ monitorId }, "Monitor removed from scheduler");
     }

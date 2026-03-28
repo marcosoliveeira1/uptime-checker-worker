@@ -12,9 +12,9 @@ vi.mock("../config/logger", () => ({
 }));
 
 const config: MonitorConfig = {
-    monitorId: 1,
-    siteId: 10,
-    workspaceId: 100,
+    monitorId: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    siteId: "site_01ARZ3NDEKTSV4RRFFQ69G5FB0",
+    workspaceId: "ws_01ARZ3NDEKTSV4RRFFQ69G5FB1",
     url: "https://example.com",
     protocol: "https",
     checkIntervalSeconds: 60,
@@ -41,7 +41,7 @@ describe("WideEventEmitter", () => {
                 wideEvent: expect.objectContaining({
                     service: "uptime-checker-worker",
                     operation: "check.execute",
-                    monitorId: 1,
+                    monitorId: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
                     status: "up",
                     outcome: "ok",
                 }),
