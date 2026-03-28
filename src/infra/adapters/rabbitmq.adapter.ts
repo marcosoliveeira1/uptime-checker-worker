@@ -107,7 +107,10 @@ export class RabbitMQAdapter implements IMessageBroker {
       // Buffer the message for later
       if (this.buffer.length < MAX_BUFFER_SIZE) {
         this.buffer.push({ exchange, routingKey, content });
-        log.warn({ exchange, routingKey, bufferSize: this.buffer.length }, 'Message buffered (disconnected)');
+        log.warn(
+          { exchange, routingKey, bufferSize: this.buffer.length },
+          'Message buffered (disconnected)',
+        );
       } else {
         log.error({ exchange, routingKey }, 'Buffer full, message dropped');
       }

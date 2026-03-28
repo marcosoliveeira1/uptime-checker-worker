@@ -9,7 +9,7 @@ export class HealthServer {
     private port: number,
     private healthService: HealthService,
     private logger: Logger,
-  ) { }
+  ) {}
 
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -26,10 +26,12 @@ export class HealthServer {
           } catch (error) {
             this.logger.error(error, 'Health check failed');
             res.writeHead(500);
-            res.end(JSON.stringify({
-              status: 'unhealthy',
-              error: error instanceof Error ? error.message : 'Unknown error',
-            }));
+            res.end(
+              JSON.stringify({
+                status: 'unhealthy',
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }),
+            );
           }
           return;
         }

@@ -29,6 +29,7 @@ export class DnsChecker implements IUptimeChecker {
         errorMessage: null,
         ipAddress,
         tlsCertificateDaysRemaining: null,
+        sslExpiryWarning: false,
       };
     } catch (err) {
       clearTimeout(timer);
@@ -37,7 +38,9 @@ export class DnsChecker implements IUptimeChecker {
       const isTimeout = abortController.signal.aborted;
       const errorMessage = isTimeout
         ? `Timeout after ${timeoutMs}ms`
-        : (err instanceof Error ? err.message : 'DNS resolution failed');
+        : err instanceof Error
+          ? err.message
+          : 'DNS resolution failed';
 
       return {
         status: UptimeStatus.DOWN,
@@ -46,6 +49,7 @@ export class DnsChecker implements IUptimeChecker {
         errorMessage,
         ipAddress: null,
         tlsCertificateDaysRemaining: null,
+        sslExpiryWarning: false,
       };
     }
   }

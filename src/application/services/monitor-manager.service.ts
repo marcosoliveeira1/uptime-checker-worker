@@ -2,7 +2,11 @@ import { IMonitorScheduler } from '../../domain/interfaces/monitor-scheduler.int
 import { IMessageBroker } from '../../domain/interfaces/message-broker.interface';
 import { MonitorConfig } from '../../domain/value-objects/monitor-config';
 import { CheckResult } from '../../domain/value-objects/check-result';
-import { AddSiteCommand, UpdateSiteCommand, RemoveSiteCommand } from '../../domain/events/monitor-command.event';
+import {
+  AddSiteCommand,
+  UpdateSiteCommand,
+  RemoveSiteCommand,
+} from '../../domain/events/monitor-command.event';
 import { CheckCompletedEvent } from '../../domain/events/check-completed.event';
 import { CheckerFactory } from '../../infra/adapters/checkers/checker.factory';
 import { WideEventEmitter } from '../../infra/observability/wide-event.emitter';
@@ -17,7 +21,7 @@ interface MonitorEntry {
 }
 
 export class MonitorManager implements HealthMetricsProvider {
-  private readonly registry = new Map<number, MonitorEntry>();
+  private readonly registry = new Map<string, MonitorEntry>();
   private checksTotal = 0;
   private checksFailed = 0;
 
@@ -26,7 +30,7 @@ export class MonitorManager implements HealthMetricsProvider {
     private readonly checkerFactory: CheckerFactory,
     private readonly broker: IMessageBroker,
     private readonly wideEventEmitter: WideEventEmitter,
-  ) {}
+  ) { }
 
   addMonitor(command: AddSiteCommand): void {
     const monitorId = command.monitor_id;
@@ -44,7 +48,15 @@ export class MonitorManager implements HealthMetricsProvider {
     this.registry.set(monitorId, { config });
     this.scheduler.add(monitorId, intervalMs, () => this.executeCheck(monitorId));
 
-    log.info({ monitorId, url: config.url, protocol: config.protocol, intervalSeconds: config.checkIntervalSeconds }, 'Monitor added');
+    log.info(
+      {
+        monitorId,
+        url: config.url,
+        protocol: config.protocol,
+        intervalSeconds: config.checkIntervalSeconds,
+      },
+      'Monitor added',
+    );
   }
 
   updateMonitor(command: UpdateSiteCommand): void {
@@ -76,7 +88,7 @@ export class MonitorManager implements HealthMetricsProvider {
     log.info({ monitorId }, 'Monitor removed');
   }
 
-  async executeCheck(monitorId: number): Promise<void> {
+  async executeCheck(monitorId: string): Promise<void> {
     const entry = this.registry.get(monitorId);
     if (!entry) {
       log.warn({ monitorId }, 'Check triggered for unknown monitor');
@@ -98,6 +110,7 @@ export class MonitorManager implements HealthMetricsProvider {
         errorMessage: err instanceof Error ? err.message : 'Unknown error',
         ipAddress: null,
         tlsCertificateDaysRemaining: null,
+        sslExpiryWarning: false,
       };
     }
 
@@ -123,6 +136,7 @@ export class MonitorManager implements HealthMetricsProvider {
       error_message: result.errorMessage,
       ip_address: result.ipAddress,
       tls_certificate_days_remaining: result.tlsCertificateDaysRemaining,
+      ssl_expiry_warning: result.sslExpiryWarning ?? false,
       checked_at: new Date().toISOString(),
       idempotency_key: `${monitorId}:${Math.floor(Date.now() / 60000)}`,
     };
@@ -164,6 +178,11 @@ export class MonitorManager implements HealthMetricsProvider {
       checkIntervalSeconds: command.check_interval_seconds,
       timeoutSeconds: command.timeout_seconds,
       expectedStatusCode: command.expected_status_code,
+      acceptedStatusCodes: command.accepted_status_codes,
+      followRedirects: command.follow_redirects,
+      slowThresholdMs: command.slow_threshold_ms,
+      checkSsl: command.check_ssl,
+      sslExpiryReminderDays: command.ssl_expiry_reminder_days,
       keywordCheck: command.keyword_check,
     };
   }

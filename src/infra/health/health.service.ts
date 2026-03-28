@@ -23,9 +23,7 @@ export class HealthService {
   private startTime = Date.now();
   private metricsProvider: HealthMetricsProvider | null = null;
 
-  constructor(
-    private readonly broker: RabbitMQAdapter,
-  ) {}
+  constructor(private readonly broker: RabbitMQAdapter) {}
 
   setMetricsProvider(provider: HealthMetricsProvider): void {
     this.metricsProvider = provider;

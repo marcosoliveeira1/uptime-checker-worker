@@ -18,7 +18,7 @@ export const logger = pino(
           singleLine: false,
         },
       })
-    : undefined
+    : undefined,
 );
 
 function createConditionalChildLogger(bindings: Record<string, string>) {

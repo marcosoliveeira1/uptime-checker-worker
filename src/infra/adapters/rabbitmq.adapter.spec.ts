@@ -73,9 +73,21 @@ describe('RabbitMQAdapter', () => {
 
       await adapter.connect();
 
-      expect(mockChannel.bindQueue).toHaveBeenCalledWith('uptime.commands.pending', 'uptime.commands', 'site.add');
-      expect(mockChannel.bindQueue).toHaveBeenCalledWith('uptime.commands.pending', 'uptime.commands', 'site.update');
-      expect(mockChannel.bindQueue).toHaveBeenCalledWith('uptime.commands.pending', 'uptime.commands', 'site.remove');
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith(
+        'uptime.commands.pending',
+        'uptime.commands',
+        'site.add',
+      );
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith(
+        'uptime.commands.pending',
+        'uptime.commands',
+        'site.update',
+      );
+      expect(mockChannel.bindQueue).toHaveBeenCalledWith(
+        'uptime.commands.pending',
+        'uptime.commands',
+        'site.remove',
+      );
     });
 
     it('should handle connection error and retry', async () => {
@@ -100,9 +112,7 @@ describe('RabbitMQAdapter', () => {
       const conn1 = createMockConnection(ch1);
       const conn2 = createMockConnection(ch2);
 
-      mockedAmqp.connect
-        .mockResolvedValueOnce(conn1 as any)
-        .mockResolvedValueOnce(conn2 as any);
+      mockedAmqp.connect.mockResolvedValueOnce(conn1 as any).mockResolvedValueOnce(conn2 as any);
 
       await adapter.connect();
       expect(adapter.isConnected()).toBe(true);
@@ -124,7 +134,7 @@ describe('RabbitMQAdapter', () => {
       mockedAmqp.connect.mockResolvedValue(mockConnection as any);
       await adapter.connect();
 
-      const message = { monitor_id: 1, status: 'up' };
+      const message = { monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV', status: 'up' };
       await adapter.publish('uptime.results', 'check.completed', message);
 
       expect(mockChannel.publish).toHaveBeenCalledWith(
@@ -136,7 +146,7 @@ describe('RabbitMQAdapter', () => {
     });
 
     it('should buffer messages when disconnected', async () => {
-      const message = { monitor_id: 1, status: 'up' };
+      const message = { monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV', status: 'up' };
       await adapter.publish('uptime.results', 'check.completed', message);
 
       expect(adapter.isConnected()).toBe(false);
@@ -152,7 +162,7 @@ describe('RabbitMQAdapter', () => {
     });
 
     it('should drain buffered messages after connecting', async () => {
-      const message = { monitor_id: 99, status: 'up' };
+      const message = { monitor_id: 'mon_02BRY4OFLUXV5SSGGG75H6GBW', status: 'up' };
       await adapter.publish('uptime.results', 'check.completed', message);
 
       const mockChannel = createMockChannel();
@@ -204,7 +214,10 @@ describe('RabbitMQAdapter', () => {
         fields: { routingKey: 'site.add' },
       });
 
-      expect(handler).toHaveBeenCalledWith({ content: { type: 'site.add' }, routingKey: 'site.add' });
+      expect(handler).toHaveBeenCalledWith({
+        content: { type: 'site.add' },
+        routingKey: 'site.add',
+      });
       expect(mockChannel.ack).toHaveBeenCalledTimes(1);
     });
 
@@ -242,9 +255,9 @@ describe('RabbitMQAdapter', () => {
     });
 
     it('should throw if channel is not initialized', async () => {
-      await expect(adapter.subscribeWithRouting('uptime.commands.pending', vi.fn())).rejects.toThrow(
-        'Channel not initialized',
-      );
+      await expect(
+        adapter.subscribeWithRouting('uptime.commands.pending', vi.fn()),
+      ).rejects.toThrow('Channel not initialized');
     });
   });
 
@@ -282,7 +295,9 @@ describe('RabbitMQAdapter', () => {
     });
 
     it('should throw if channel is not initialized', async () => {
-      await expect(adapter.subscribe('uptime.results', vi.fn())).rejects.toThrow('Channel not initialized');
+      await expect(adapter.subscribe('uptime.results', vi.fn())).rejects.toThrow(
+        'Channel not initialized',
+      );
     });
   });
 

@@ -16,9 +16,10 @@ export class PingChecker implements IUptimeChecker {
     const host = url.hostname;
 
     return new Promise<CheckResult>((resolve) => {
-      const command = process.platform === 'darwin'
-        ? `ping -c 1 -t ${timeoutSeconds} ${host}`
-        : `ping -c 1 -W ${timeoutSeconds} ${host}`;
+      const command =
+        process.platform === 'darwin'
+          ? `ping -c 1 -t ${timeoutSeconds} ${host}`
+          : `ping -c 1 -W ${timeoutSeconds} ${host}`;
 
       exec(command, { timeout: (timeoutSeconds + 1) * 1000 }, (error, stdout, stderr) => {
         const responseTimeMs = Date.now() - startTime;
@@ -28,9 +29,12 @@ export class PingChecker implements IUptimeChecker {
             status: UptimeStatus.DOWN,
             responseTimeMs,
             statusCode: null,
-            errorMessage: error.killed ? `Timeout after ${timeoutSeconds}s` : (stderr || error.message),
+            errorMessage: error.killed
+              ? `Timeout after ${timeoutSeconds}s`
+              : stderr || error.message,
             ipAddress: null,
             tlsCertificateDaysRemaining: null,
+            sslExpiryWarning: false,
           });
           return;
         }
@@ -50,6 +54,7 @@ export class PingChecker implements IUptimeChecker {
           errorMessage: null,
           ipAddress,
           tlsCertificateDaysRemaining: null,
+          sslExpiryWarning: false,
         });
       });
     });

@@ -27,20 +27,29 @@ export class HttpChecker implements IUptimeChecker {
           let body = '';
           let ipAddress: string | null = null;
           let tlsCertificateDaysRemaining: number | null = null;
+          let sslExpiryWarning = false;
 
           // Extract IP address from socket
           ipAddress = res.socket?.remoteAddress ?? null;
 
-          // Extract TLS certificate info for HTTPS
-          if (isHttps && res.socket instanceof TLSSocket) {
+          // Extract TLS certificate info for HTTPS (conditional on checkSsl flag)
+          if (config.checkSsl !== false && isHttps && res.socket instanceof TLSSocket) {
             try {
               const cert = (res.socket as TLSSocket).getPeerCertificate();
               if (cert && cert.valid_to) {
                 const expiryDate = new Date(cert.valid_to);
                 const now = new Date();
                 tlsCertificateDaysRemaining = Math.floor(
-                  (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+                  (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
                 );
+
+                // Calculate SSL expiry warning
+                if (
+                  config.sslExpiryReminderDays &&
+                  tlsCertificateDaysRemaining <= config.sslExpiryReminderDays
+                ) {
+                  sslExpiryWarning = true;
+                }
               }
             } catch (err) {
               log.debug({ err }, 'Failed to extract TLS certificate');
@@ -48,19 +57,22 @@ export class HttpChecker implements IUptimeChecker {
           }
 
           const statusCode = res.statusCode ?? 0;
-          const expectedStatus = config.expectedStatusCode ?? 200;
 
-          // Check status code
-          if (statusCode !== expectedStatus) {
+          // Check status code against accepted codes or expected status
+          const acceptedCodes = config.acceptedStatusCodes || [config.expectedStatusCode ?? 200];
+          const isStatusOk = acceptedCodes.includes(statusCode);
+
+          if (!isStatusOk) {
             clearTimeout(timer);
             res.resume(); // drain response
             resolve({
               status: UptimeStatus.DOWN,
               responseTimeMs,
               statusCode,
-              errorMessage: `Expected status ${expectedStatus}, got ${statusCode}`,
+              errorMessage: `Expected one of [${acceptedCodes.join(', ')}], got ${statusCode}`,
               ipAddress,
               tlsCertificateDaysRemaining,
+              sslExpiryWarning,
             });
             return;
           }
@@ -68,7 +80,9 @@ export class HttpChecker implements IUptimeChecker {
           // If keyword check is needed, read body
           if (config.keywordCheck) {
             res.setEncoding('utf8');
-            res.on('data', (chunk: string) => { body += chunk; });
+            res.on('data', (chunk: string) => {
+              body += chunk;
+            });
             res.on('end', () => {
               clearTimeout(timer);
 
@@ -80,13 +94,14 @@ export class HttpChecker implements IUptimeChecker {
                   errorMessage: 'Keyword not found',
                   ipAddress,
                   tlsCertificateDaysRemaining,
+                  sslExpiryWarning,
                 });
                 return;
               }
 
-              const status = responseTimeMs > env.DEGRADED_THRESHOLD_MS
-                ? UptimeStatus.DEGRADED
-                : UptimeStatus.UP;
+              // Use per-monitor threshold if configured, otherwise fall back to env var
+              const threshold = config.slowThresholdMs ?? env.DEGRADED_THRESHOLD_MS;
+              const status = responseTimeMs > threshold ? UptimeStatus.DEGRADED : UptimeStatus.UP;
 
               resolve({
                 status,
@@ -95,15 +110,16 @@ export class HttpChecker implements IUptimeChecker {
                 errorMessage: null,
                 ipAddress,
                 tlsCertificateDaysRemaining,
+                sslExpiryWarning,
               });
             });
           } else {
             clearTimeout(timer);
             res.resume(); // drain response
 
-            const status = responseTimeMs > env.DEGRADED_THRESHOLD_MS
-              ? UptimeStatus.DEGRADED
-              : UptimeStatus.UP;
+            // Use per-monitor threshold if configured, otherwise fall back to env var
+            const threshold = config.slowThresholdMs ?? env.DEGRADED_THRESHOLD_MS;
+            const status = responseTimeMs > threshold ? UptimeStatus.DEGRADED : UptimeStatus.UP;
 
             resolve({
               status,
@@ -112,6 +128,7 @@ export class HttpChecker implements IUptimeChecker {
               errorMessage: null,
               ipAddress,
               tlsCertificateDaysRemaining,
+              sslExpiryWarning,
             });
           }
         });
@@ -128,6 +145,7 @@ export class HttpChecker implements IUptimeChecker {
               errorMessage: `Timeout after ${timeoutMs}ms`,
               ipAddress: null,
               tlsCertificateDaysRemaining: null,
+              sslExpiryWarning: false,
             });
             return;
           }
@@ -139,6 +157,7 @@ export class HttpChecker implements IUptimeChecker {
             errorMessage: err.message,
             ipAddress: null,
             tlsCertificateDaysRemaining: null,
+            sslExpiryWarning: false,
           });
         });
       } catch (err) {
@@ -150,6 +169,7 @@ export class HttpChecker implements IUptimeChecker {
           errorMessage: err instanceof Error ? err.message : 'Unknown error',
           ipAddress: null,
           tlsCertificateDaysRemaining: null,
+          sslExpiryWarning: false,
         });
       }
     });

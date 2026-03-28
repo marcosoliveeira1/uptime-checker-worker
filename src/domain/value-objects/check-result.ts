@@ -7,4 +7,5 @@ export interface CheckResult {
   errorMessage: string | null;
   ipAddress: string | null;
   tlsCertificateDaysRemaining: number | null;
+  sslExpiryWarning?: boolean;
 }

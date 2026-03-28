@@ -129,7 +129,9 @@ describe('TickScheduler', () => {
     await vi.advanceTimersByTimeAsync(3000);
 
     // Monitor 2 with shorter interval fires first
-    expect(callback2.mock.invocationCallOrder[0]).toBeLessThan(callback1.mock.invocationCallOrder[0] || Infinity);
+    expect(callback2.mock.invocationCallOrder[0]).toBeLessThan(
+      callback1.mock.invocationCallOrder[0] || Infinity,
+    );
   });
 
   it('should handle start when already started', () => {

@@ -8,9 +8,9 @@ import { EventEmitter, PassThrough } from 'node:stream';
 
 function createConfig(overrides: Partial<MonitorConfig> = {}): MonitorConfig {
   return {
-    monitorId: 1,
-    siteId: 10,
-    workspaceId: 100,
+    monitorId: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+    siteId: 'site_01ARZ3NDEKTSV4RRFFQ69G5FB0',
+    workspaceId: 'ws_01ARZ3NDEKTSV4RRFFQ69G5FB1',
     url: 'http://example.com',
     protocol: 'http',
     checkIntervalSeconds: 60,
@@ -67,7 +67,7 @@ describe('HttpChecker', () => {
 
     expect(result.status).toBe('down');
     expect(result.statusCode).toBe(500);
-    expect(result.errorMessage).toContain('Expected status 200');
+    expect(result.errorMessage).toContain('200');
   });
 
   it('should return DOWN on request error', async () => {
@@ -156,10 +156,12 @@ describe('HttpChecker', () => {
       return req;
     });
 
-    const result = await checker.check(createConfig({
-      protocol: 'https',
-      url: 'https://example.com',
-    }));
+    const result = await checker.check(
+      createConfig({
+        protocol: 'https',
+        url: 'https://example.com',
+      }),
+    );
 
     expect(httpsSpy).toHaveBeenCalled();
     expect(result.status).toBe('up');
@@ -289,7 +291,9 @@ describe('HttpChecker', () => {
     const mockReq = new EventEmitter() as any;
 
     vi.spyOn(http, 'get').mockImplementation((_url: any, _opts: any, _cb: any) => {
-      process.nextTick(() => mockReq.emit('error', new Error('ECONNRESET: Connection reset by peer')));
+      process.nextTick(() =>
+        mockReq.emit('error', new Error('ECONNRESET: Connection reset by peer')),
+      );
       return mockReq;
     });
 
@@ -323,9 +327,7 @@ describe('HttpChecker', () => {
     mockResponse.socket = { remoteAddress: '1.2.3.4' };
 
     const dateNowSpy = vi.spyOn(Date, 'now');
-    dateNowSpy
-      .mockReturnValueOnce(1000)
-      .mockReturnValueOnce(120000);
+    dateNowSpy.mockReturnValueOnce(1000).mockReturnValueOnce(120000);
 
     vi.spyOn(http, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
       process.nextTick(() => cb(mockResponse));
@@ -355,7 +357,9 @@ describe('HttpChecker', () => {
       return req;
     });
 
-    const result = await checker.check(createConfig({ protocol: 'https', url: 'https://example.com' }));
+    const result = await checker.check(
+      createConfig({ protocol: 'https', url: 'https://example.com' }),
+    );
 
     expect(result.status).toBe('up');
     expect(result.tlsCertificateDaysRemaining).toBeTypeOf('number');
@@ -378,7 +382,9 @@ describe('HttpChecker', () => {
       return req;
     });
 
-    const result = await checker.check(createConfig({ protocol: 'https', url: 'https://example.com' }));
+    const result = await checker.check(
+      createConfig({ protocol: 'https', url: 'https://example.com' }),
+    );
 
     expect(result.status).toBe('up');
     expect(result.tlsCertificateDaysRemaining).toBeNull();
@@ -393,5 +399,212 @@ describe('HttpChecker', () => {
 
     expect(result.status).toBe('down');
     expect(result.errorMessage).toBe('sync failure');
+  });
+
+  // ── acceptedStatusCodes ───────────────────────────────────────────────────
+
+  it('should return UP when status code is in acceptedStatusCodes', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 201;
+    mockResponse.socket = { remoteAddress: '1.2.3.4' };
+
+    vi.spyOn(http, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      process.nextTick(() => mockResponse.emit('end'));
+      const req = new EventEmitter() as any;
+      return req;
+    });
+
+    const result = await checker.check(createConfig({ acceptedStatusCodes: [200, 201] }));
+
+    expect(result.status).toBe('up');
+    expect(result.statusCode).toBe(201);
+    expect(result.errorMessage).toBeNull();
+  });
+
+  it('should return DOWN when status code not in acceptedStatusCodes', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 301;
+    mockResponse.socket = { remoteAddress: '1.2.3.4' };
+
+    vi.spyOn(http, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      const req = new EventEmitter() as any;
+      req.on = req.on.bind(req);
+      return req;
+    });
+
+    const result = await checker.check(createConfig({ acceptedStatusCodes: [200, 201] }));
+
+    expect(result.status).toBe('down');
+    expect(result.statusCode).toBe(301);
+    expect(result.errorMessage).toContain('200');
+    expect(result.errorMessage).toContain('201');
+  });
+
+  // ── slowThresholdMs per monitor ───────────────────────────────────────────
+
+  it('should return DEGRADED using per-monitor slowThresholdMs', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 200;
+    mockResponse.socket = { remoteAddress: '1.2.3.4' };
+
+    vi.spyOn(http, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      // Delay the response callback by 50ms so elapsed time exceeds threshold
+      setTimeout(() => {
+        cb(mockResponse);
+        mockResponse.emit('end');
+      }, 50);
+      const req = new EventEmitter() as any;
+      req.on = req.on.bind(req);
+      return req;
+    });
+
+    const result = await checker.check(createConfig({ slowThresholdMs: 1 }));
+
+    expect(result.status).toBe('degraded');
+  });
+
+  it('should return UP when response is within per-monitor slowThresholdMs', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 200;
+    mockResponse.socket = { remoteAddress: '1.2.3.4' };
+
+    vi.spyOn(http, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      process.nextTick(() => mockResponse.emit('end'));
+      const req = new EventEmitter() as any;
+      return req;
+    });
+
+    const result = await checker.check(createConfig({ slowThresholdMs: 10000 }));
+
+    expect(result.status).toBe('up');
+  });
+
+  // ── checkSsl flag ─────────────────────────────────────────────────────────
+
+  it('should skip TLS extraction when checkSsl is false', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 200;
+    const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
+    Object.defineProperty(socket, 'remoteAddress', { get: () => '8.8.8.8' });
+    (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
+      valid_to: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toUTCString(),
+    });
+    mockResponse.socket = socket;
+
+    vi.spyOn(https, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      process.nextTick(() => mockResponse.emit('end'));
+      const req = new EventEmitter() as any;
+      return req;
+    });
+
+    const result = await checker.check(
+      createConfig({
+        protocol: 'https',
+        url: 'https://example.com',
+        checkSsl: false,
+      }),
+    );
+
+    expect((socket as any).getPeerCertificate).not.toHaveBeenCalled();
+    expect(result.tlsCertificateDaysRemaining).toBeNull();
+    expect(result.sslExpiryWarning).toBe(false);
+  });
+
+  // ── ssl_expiry_warning ────────────────────────────────────────────────────
+
+  it('should set sslExpiryWarning=true when cert expires within sslExpiryReminderDays', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 200;
+    const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
+    Object.defineProperty(socket, 'remoteAddress', { get: () => '8.8.8.8' });
+    // Cert expires in 15 days
+    (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
+      valid_to: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toUTCString(),
+    });
+    mockResponse.socket = socket;
+
+    vi.spyOn(https, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      process.nextTick(() => mockResponse.emit('end'));
+      const req = new EventEmitter() as any;
+      return req;
+    });
+
+    const result = await checker.check(
+      createConfig({
+        protocol: 'https',
+        url: 'https://example.com',
+        checkSsl: true,
+        sslExpiryReminderDays: 30,
+      }),
+    );
+
+    expect(result.status).toBe('up');
+    expect(result.sslExpiryWarning).toBe(true);
+    expect(result.tlsCertificateDaysRemaining).toBeGreaterThan(0);
+  });
+
+  it('should set sslExpiryWarning=false when cert is not close to expiry', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 200;
+    const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
+    Object.defineProperty(socket, 'remoteAddress', { get: () => '8.8.8.8' });
+    // Cert expires in 90 days
+    (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
+      valid_to: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString(),
+    });
+    mockResponse.socket = socket;
+
+    vi.spyOn(https, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      process.nextTick(() => mockResponse.emit('end'));
+      const req = new EventEmitter() as any;
+      return req;
+    });
+
+    const result = await checker.check(
+      createConfig({
+        protocol: 'https',
+        url: 'https://example.com',
+        checkSsl: true,
+        sslExpiryReminderDays: 30,
+      }),
+    );
+
+    expect(result.sslExpiryWarning).toBe(false);
+  });
+
+  it('should not set sslExpiryWarning when sslExpiryReminderDays is not configured', async () => {
+    const mockResponse = new PassThrough() as any;
+    mockResponse.statusCode = 200;
+    const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
+    Object.defineProperty(socket, 'remoteAddress', { get: () => '8.8.8.8' });
+    // Cert expires in 5 days — but no reminder days set
+    (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
+      valid_to: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toUTCString(),
+    });
+    mockResponse.socket = socket;
+
+    vi.spyOn(https, 'get').mockImplementation((_url: any, _opts: any, cb: any) => {
+      process.nextTick(() => cb(mockResponse));
+      process.nextTick(() => mockResponse.emit('end'));
+      const req = new EventEmitter() as any;
+      return req;
+    });
+
+    const result = await checker.check(
+      createConfig({
+        protocol: 'https',
+        url: 'https://example.com',
+        checkSsl: true,
+        // sslExpiryReminderDays not set
+      }),
+    );
+
+    expect(result.sslExpiryWarning).toBe(false);
   });
 });

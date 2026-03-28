@@ -66,11 +66,14 @@ async function bootstrap() {
       instance_id: uuidv4(),
     });
 
-    log.info({
-      healthPort: env.HEALTH_PORT,
-      maxConcurrentChecks: env.MAX_CONCURRENT_CHECKS,
-      tickIntervalMs: env.TICK_INTERVAL_MS,
-    }, 'Worker is running');
+    log.info(
+      {
+        healthPort: env.HEALTH_PORT,
+        maxConcurrentChecks: env.MAX_CONCURRENT_CHECKS,
+        tickIntervalMs: env.TICK_INTERVAL_MS,
+      },
+      'Worker is running',
+    );
   } catch (error) {
     log.error(error, 'Bootstrap failed');
     process.exit(1);
@@ -90,7 +93,10 @@ async function bootstrap() {
     }
 
     if (scheduler.getActiveChecks() > 0) {
-      log.warn({ activeChecks: scheduler.getActiveChecks() }, 'Shutdown timeout, some checks still in-flight');
+      log.warn(
+        { activeChecks: scheduler.getActiveChecks() },
+        'Shutdown timeout, some checks still in-flight',
+      );
     }
 
     await healthServer.stop();

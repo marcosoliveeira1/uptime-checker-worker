@@ -48,7 +48,10 @@ export class TickScheduler implements IMonitorScheduler {
   start(): void {
     if (this.tickTimer) return;
     this.tickTimer = setInterval(() => this.tick(), this.tickIntervalMs);
-    log.info({ tickIntervalMs: this.tickIntervalMs, maxConcurrentChecks: this.maxConcurrentChecks }, 'Scheduler started');
+    log.info(
+      { tickIntervalMs: this.tickIntervalMs, maxConcurrentChecks: this.maxConcurrentChecks },
+      'Scheduler started',
+    );
   }
 
   stop(): void {
@@ -83,7 +86,8 @@ export class TickScheduler implements IMonitorScheduler {
       this.activeChecks++;
       entry.nextCheckAt = now + entry.intervalMs;
 
-      entry.callback()
+      entry
+        .callback()
         .catch((err) => {
           log.error({ monitorId, err }, 'Check callback failed');
         })

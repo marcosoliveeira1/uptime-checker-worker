@@ -7,9 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
   // RabbitMQ
-  RABBITMQ_URL: process.env.NODE_ENV === 'production'
-    ? z.url()
-    : z.url().optional(),
+  RABBITMQ_URL: process.env.NODE_ENV === 'production' ? z.url() : z.url().optional(),
 
   // Scheduler
   MAX_CONCURRENT_CHECKS: z.coerce.number().default(50),

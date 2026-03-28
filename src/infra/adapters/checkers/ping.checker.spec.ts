@@ -32,7 +32,11 @@ describe('PingChecker', () => {
 
   it('should return UP on successful ping', async () => {
     mockedExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
-      cb(null, 'PING example.com (93.184.216.34): 56 data bytes\n64 bytes from 93.184.216.34: icmp_seq=0 ttl=56 time=11.632 ms', '');
+      cb(
+        null,
+        'PING example.com (93.184.216.34): 56 data bytes\n64 bytes from 93.184.216.34: icmp_seq=0 ttl=56 time=11.632 ms',
+        '',
+      );
       return {} as any;
     });
 
@@ -104,7 +108,11 @@ describe('PingChecker', () => {
 
   it('should extract IP from parentheses correctly', async () => {
     mockedExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
-      cb(null, 'PING api.example.com (203.0.113.42): 56 data bytes\n64 bytes from 203.0.113.42: icmp_seq=0 ttl=64 time=12.456 ms', '');
+      cb(
+        null,
+        'PING api.example.com (203.0.113.42): 56 data bytes\n64 bytes from 203.0.113.42: icmp_seq=0 ttl=64 time=12.456 ms',
+        '',
+      );
       return {} as any;
     });
 

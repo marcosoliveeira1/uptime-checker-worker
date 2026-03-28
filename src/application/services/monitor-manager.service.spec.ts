@@ -4,7 +4,11 @@ import { IMonitorScheduler } from '../../domain/interfaces/monitor-scheduler.int
 import { IMessageBroker } from '../../domain/interfaces/message-broker.interface';
 import { CheckerFactory } from '../../infra/adapters/checkers/checker.factory';
 import { WideEventEmitter } from '../../infra/observability/wide-event.emitter';
-import { AddSiteCommand, RemoveSiteCommand, UpdateSiteCommand } from '../../domain/events/monitor-command.event';
+import {
+  AddSiteCommand,
+  RemoveSiteCommand,
+  UpdateSiteCommand,
+} from '../../domain/events/monitor-command.event';
 import { IUptimeChecker } from '../../domain/interfaces/uptime-checker.interface';
 
 function createMockScheduler(): IMonitorScheduler {
@@ -39,6 +43,7 @@ function createMockCheckerFactory(): CheckerFactory {
       errorMessage: null,
       ipAddress: '1.2.3.4',
       tlsCertificateDaysRemaining: 30,
+      sslExpiryWarning: false,
     }),
   };
 
@@ -54,9 +59,9 @@ function createMockWideEventEmitter(): WideEventEmitter {
 }
 
 const addCommand: AddSiteCommand = {
-  monitor_id: 1,
-  site_id: 10,
-  workspace_id: 100,
+  monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+  site_id: 'site_01ARZ3NDEKTSV4RRFFQ69G5FB0',
+  workspace_id: 'ws_01ARZ3NDEKTSV4RRFFQ69G5FB1',
   url: 'https://example.com',
   protocol: 'https',
   check_interval_seconds: 60,
@@ -83,7 +88,11 @@ describe('MonitorManager', () => {
     it('should register monitor and add to scheduler', () => {
       manager.addMonitor(addCommand);
 
-      expect(scheduler.add).toHaveBeenCalledWith(1, 60000, expect.any(Function));
+      expect(scheduler.add).toHaveBeenCalledWith(
+        'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        60000,
+        expect.any(Function),
+      );
       expect(manager.getMonitorsActive()).toBe(1);
     });
 
@@ -109,7 +118,7 @@ describe('MonitorManager', () => {
 
       manager.updateMonitor(updateCommand);
 
-      expect(scheduler.update).toHaveBeenCalledWith(1, 30000);
+      expect(scheduler.update).toHaveBeenCalledWith('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV', 30000);
       expect(manager.getMonitorsActive()).toBe(1);
     });
 
@@ -121,7 +130,11 @@ describe('MonitorManager', () => {
 
       manager.updateMonitor(updateCommand);
 
-      expect(scheduler.add).toHaveBeenCalledWith(1, 60000, expect.any(Function));
+      expect(scheduler.add).toHaveBeenCalledWith(
+        'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        60000,
+        expect.any(Function),
+      );
     });
   });
 
@@ -130,13 +143,13 @@ describe('MonitorManager', () => {
       manager.addMonitor(addCommand);
 
       const removeCommand: RemoveSiteCommand = {
-        monitor_id: 1,
+        monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
         idempotency_key: 'remove-1-1234',
       };
 
       manager.removeMonitor(removeCommand);
 
-      expect(scheduler.remove).toHaveBeenCalledWith(1);
+      expect(scheduler.remove).toHaveBeenCalledWith('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
       expect(manager.getMonitorsActive()).toBe(0);
     });
   });
@@ -145,17 +158,18 @@ describe('MonitorManager', () => {
     it('should execute check and publish result', async () => {
       manager.addMonitor(addCommand);
 
-      await manager.executeCheck(1);
+      await manager.executeCheck('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
 
       expect(checkerFactory.getChecker).toHaveBeenCalledWith('https');
       expect(broker.publish).toHaveBeenCalledWith(
         'uptime.results',
         'check.completed',
         expect.objectContaining({
-          monitor_id: 1,
-          site_id: 10,
-          workspace_id: 100,
+          monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+          site_id: 'site_01ARZ3NDEKTSV4RRFFQ69G5FB0',
+          workspace_id: 'ws_01ARZ3NDEKTSV4RRFFQ69G5FB1',
           status: 'up',
+          ssl_expiry_warning: false,
         }),
       );
       expect(wideEventEmitter.emit).toHaveBeenCalled();
@@ -168,7 +182,7 @@ describe('MonitorManager', () => {
       (checkerFactory.getChecker as any).mockReturnValue(failingChecker);
 
       manager.addMonitor(addCommand);
-      await manager.executeCheck(1);
+      await manager.executeCheck('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
 
       expect(broker.publish).toHaveBeenCalledWith(
         'uptime.results',
@@ -187,7 +201,7 @@ describe('MonitorManager', () => {
       (checkerFactory.getChecker as any).mockReturnValue(failingChecker);
 
       manager.addMonitor(addCommand);
-      await manager.executeCheck(1);
+      await manager.executeCheck('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
 
       expect(broker.publish).toHaveBeenCalledWith(
         'uptime.results',
@@ -200,14 +214,14 @@ describe('MonitorManager', () => {
     });
 
     it('should skip check for unknown monitor', async () => {
-      await manager.executeCheck(999);
+      await manager.executeCheck('mon_unknown');
       expect(broker.publish).not.toHaveBeenCalled();
     });
 
     it('should increment metrics', async () => {
       manager.addMonitor(addCommand);
 
-      await manager.executeCheck(1);
+      await manager.executeCheck('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
 
       expect(manager.getChecksTotal()).toBe(1);
       expect(manager.getChecksFailed()).toBe(0);
@@ -227,7 +241,7 @@ describe('MonitorManager', () => {
       (checkerFactory.getChecker as any).mockReturnValue(failingChecker);
 
       manager.addMonitor(addCommand);
-      await manager.executeCheck(1);
+      await manager.executeCheck('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
 
       expect(manager.getChecksFailed()).toBe(1);
     });
@@ -250,13 +264,13 @@ describe('MonitorManager', () => {
     it('should generate idempotency key based on monitorId and minute', async () => {
       manager.addMonitor(addCommand);
 
-      await manager.executeCheck(1);
+      await manager.executeCheck('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
 
       expect(broker.publish).toHaveBeenCalledWith(
         'uptime.results',
         'check.completed',
         expect.objectContaining({
-          idempotency_key: expect.stringMatching(/^\d+:\d+$/),
+          idempotency_key: expect.stringMatching(/^mon_.+:\d+$/),
         }),
       );
     });
@@ -265,9 +279,9 @@ describe('MonitorManager', () => {
   describe('Config conversion', () => {
     it('should convert command with all optional fields', async () => {
       const command: AddSiteCommand = {
-        monitor_id: 2,
-        site_id: 20,
-        workspace_id: 200,
+        monitor_id: 'mon_02BRY4OFLUXV5SSGGG75H6GBW',
+        site_id: 'site_02BRY4OFLUXV5SSGGG75H6GBX',
+        workspace_id: 'ws_02BRY4OFLUXV5SSGGG75H6GBY',
         url: 'https://api.example.com',
         protocol: 'https',
         check_interval_seconds: 30,
@@ -280,7 +294,7 @@ describe('MonitorManager', () => {
       manager.addMonitor(command);
 
       expect(scheduler.add).toHaveBeenCalledWith(
-        2,
+        'mon_02BRY4OFLUXV5SSGGG75H6GBW',
         30000,
         expect.any(Function),
       );
@@ -290,8 +304,17 @@ describe('MonitorManager', () => {
 
   describe('Multiple monitors', () => {
     it('should manage multiple monitors independently', async () => {
-      const cmd1 = { ...addCommand, monitor_id: 1, idempotency_key: 'add-1' };
-      const cmd2 = { ...addCommand, monitor_id: 2, site_id: 11, idempotency_key: 'add-2' };
+      const cmd1 = {
+        ...addCommand,
+        monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        idempotency_key: 'add-1',
+      };
+      const cmd2 = {
+        ...addCommand,
+        monitor_id: 'mon_02BRY4OFLUXV5SSGGG75H6GBW',
+        site_id: 'site_02BRY4OFLUXV5SSGGG75H6GBX',
+        idempotency_key: 'add-2',
+      };
 
       manager.addMonitor(cmd1);
       manager.addMonitor(cmd2);
@@ -299,10 +322,13 @@ describe('MonitorManager', () => {
       expect(manager.getMonitorsActive()).toBe(2);
       expect(scheduler.add).toHaveBeenCalledTimes(2);
 
-      manager.removeMonitor({ monitor_id: 1, idempotency_key: 'remove-1' });
+      manager.removeMonitor({
+        monitor_id: 'mon_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        idempotency_key: 'remove-1',
+      });
 
       expect(manager.getMonitorsActive()).toBe(1);
-      expect(scheduler.remove).toHaveBeenCalledWith(1);
+      expect(scheduler.remove).toHaveBeenCalledWith('mon_01ARZ3NDEKTSV4RRFFQ69G5FAV');
     });
   });
 });

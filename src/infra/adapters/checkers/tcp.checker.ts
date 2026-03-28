@@ -26,6 +26,7 @@ export class TcpChecker implements IUptimeChecker {
           errorMessage: null,
           ipAddress,
           tlsCertificateDaysRemaining: null,
+          sslExpiryWarning: false,
         });
       });
 
@@ -40,6 +41,7 @@ export class TcpChecker implements IUptimeChecker {
           errorMessage: `Timeout after ${timeoutMs}ms`,
           ipAddress: null,
           tlsCertificateDaysRemaining: null,
+          sslExpiryWarning: false,
         });
       });
 
@@ -52,6 +54,7 @@ export class TcpChecker implements IUptimeChecker {
           errorMessage: err.message,
           ipAddress: null,
           tlsCertificateDaysRemaining: null,
+          sslExpiryWarning: false,
         });
       });
     });
