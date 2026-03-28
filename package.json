@@ -15,6 +15,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
+        "ci": "pnpm run typecheck && pnpm run lint && pnpm run test:coverage",
         "health": "node scripts/healthcheck.js"
     },
     "dependencies": {
