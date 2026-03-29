@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { DnsChecker } from "./dns.checker";
-import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
 import dns from "node:dns/promises";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MonitorConfig } from "../../../domain/value-objects/monitor-config";
+import { DnsChecker } from "./dns.checker";
 
 function createConfig(overrides: Partial<MonitorConfig> = {}): MonitorConfig {
     return {
@@ -38,14 +38,18 @@ describe("DnsChecker", () => {
             new Error("queryA ENOTFOUND nonexistent.example"),
         );
 
-        const result = await checker.check(createConfig({ url: "http://nonexistent.example" }));
+        const result = await checker.check(
+            createConfig({ url: "http://nonexistent.example" }),
+        );
 
         expect(result.status).toBe("down");
         expect(result.errorMessage).toContain("ENOTFOUND");
     });
 
     it("should return DOWN on resolution failure", async () => {
-        vi.spyOn(dns, "resolve4").mockRejectedValue(new Error("DNS resolution failed"));
+        vi.spyOn(dns, "resolve4").mockRejectedValue(
+            new Error("DNS resolution failed"),
+        );
 
         const result = await checker.check(createConfig());
 
@@ -54,7 +58,11 @@ describe("DnsChecker", () => {
     });
 
     it("should return UP with multiple IPs (uses first)", async () => {
-        vi.spyOn(dns, "resolve4").mockResolvedValue(["1.2.3.4", "5.6.7.8", "9.10.11.12"]);
+        vi.spyOn(dns, "resolve4").mockResolvedValue([
+            "1.2.3.4",
+            "5.6.7.8",
+            "9.10.11.12",
+        ]);
 
         const result = await checker.check(createConfig());
 
@@ -96,11 +104,16 @@ describe("DnsChecker", () => {
         vi.spyOn(dns, "resolve4").mockImplementation(
             () =>
                 new Promise((_resolve, reject) => {
-                    setTimeout(() => reject(new Error("DNS timeout simulated")), 1100);
+                    setTimeout(
+                        () => reject(new Error("DNS timeout simulated")),
+                        1100,
+                    );
                 }) as any,
         );
 
-        const resultPromise = checker.check(createConfig({ timeoutSeconds: 1 }));
+        const resultPromise = checker.check(
+            createConfig({ timeoutSeconds: 1 }),
+        );
         await vi.advanceTimersByTimeAsync(1100);
         const result = await resultPromise;
 

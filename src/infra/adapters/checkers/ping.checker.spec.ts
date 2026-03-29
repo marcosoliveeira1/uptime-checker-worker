@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MonitorConfig } from "../../../domain/value-objects/monitor-config";
 
 vi.mock("node:child_process", () => ({
     exec: vi.fn(),
@@ -79,7 +79,11 @@ describe("PingChecker", () => {
 
     it("should handle ping with no RTT match but success", async () => {
         mockedExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
-            cb(null, "PING example.com (1.2.3.4): 56 data bytes\nstat bytes received", "");
+            cb(
+                null,
+                "PING example.com (1.2.3.4): 56 data bytes\nstat bytes received",
+                "",
+            );
             return {} as any;
         });
 
@@ -91,7 +95,10 @@ describe("PingChecker", () => {
 
     it("should handle Darwin platform correctly", async () => {
         const originalPlatform = process.platform;
-        Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+        Object.defineProperty(process, "platform", {
+            value: "darwin",
+            configurable: true,
+        });
 
         mockedExec.mockImplementation((cmd: any, _opts: any, cb: any) => {
             expect(cmd).toContain("-t");
@@ -103,7 +110,10 @@ describe("PingChecker", () => {
 
         expect(result.status).toBe("up");
 
-        Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+        Object.defineProperty(process, "platform", {
+            value: originalPlatform,
+            configurable: true,
+        });
     });
 
     it("should extract IP from parentheses correctly", async () => {
@@ -124,7 +134,11 @@ describe("PingChecker", () => {
 
     it("should return null IP when output has no parenthesized address", async () => {
         mockedExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
-            cb(null, "64 bytes from 203.0.113.42: icmp_seq=0 ttl=64 time=12.456 ms", "");
+            cb(
+                null,
+                "64 bytes from 203.0.113.42: icmp_seq=0 ttl=64 time=12.456 ms",
+                "",
+            );
             return {} as any;
         });
 
@@ -136,7 +150,10 @@ describe("PingChecker", () => {
 
     it("should use -W flag on non-darwin platforms", async () => {
         const originalPlatform = process.platform;
-        Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+        Object.defineProperty(process, "platform", {
+            value: "linux",
+            configurable: true,
+        });
 
         mockedExec.mockImplementation((cmd: any, _opts: any, cb: any) => {
             expect(cmd).toContain("-W");
@@ -147,7 +164,10 @@ describe("PingChecker", () => {
         const result = await checker.check(createConfig());
 
         expect(result.status).toBe("up");
-        Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+        Object.defineProperty(process, "platform", {
+            value: originalPlatform,
+            configurable: true,
+        });
     });
 
     it("should handle stderr output on error", async () => {

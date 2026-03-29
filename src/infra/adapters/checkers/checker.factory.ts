@@ -1,9 +1,9 @@
+import type { IUptimeChecker } from "../../../domain/interfaces/uptime-checker.interface";
 import { Protocol } from "../../../domain/value-objects/protocol";
-import { IUptimeChecker } from "../../../domain/interfaces/uptime-checker.interface";
-import { HttpChecker } from "./http.checker";
-import { TcpChecker } from "./tcp.checker";
-import { PingChecker } from "./ping.checker";
 import { DnsChecker } from "./dns.checker";
+import { HttpChecker } from "./http.checker";
+import { PingChecker } from "./ping.checker";
+import { TcpChecker } from "./tcp.checker";
 
 export class CheckerFactory {
     private readonly checkers: Map<Protocol, IUptimeChecker>;

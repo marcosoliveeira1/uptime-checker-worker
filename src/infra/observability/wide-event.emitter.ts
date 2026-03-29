@@ -1,7 +1,7 @@
+import type { UptimeWideEvent } from "../../domain/events/wide-event";
+import type { CheckResult } from "../../domain/value-objects/check-result";
+import type { MonitorConfig } from "../../domain/value-objects/monitor-config";
 import { logger } from "../config/logger";
-import { UptimeWideEvent } from "../../domain/events/wide-event";
-import { MonitorConfig } from "../../domain/value-objects/monitor-config";
-import { CheckResult } from "../../domain/value-objects/check-result";
 
 export class WideEventEmitter {
     emit(config: MonitorConfig, result: CheckResult, duration: number): void {

@@ -1,4 +1,4 @@
-import { UptimeStatus } from "../value-objects/uptime-status";
+import type { UptimeStatus } from "../value-objects/uptime-status";
 
 export interface CheckCompletedEvent {
     monitor_id: string;

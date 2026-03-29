@@ -1,4 +1,4 @@
-import { UptimeStatus } from "./uptime-status";
+import type { UptimeStatus } from "./uptime-status";
 
 export interface CheckResult {
     status: UptimeStatus;

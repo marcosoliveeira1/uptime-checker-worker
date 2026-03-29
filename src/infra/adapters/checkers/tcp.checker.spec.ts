@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { TcpChecker } from "./tcp.checker";
-import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
-import net from "node:net";
 import { EventEmitter } from "node:events";
+import net from "node:net";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MonitorConfig } from "../../../domain/value-objects/monitor-config";
+import { TcpChecker } from "./tcp.checker";
 
 function createConfig(overrides: Partial<MonitorConfig> = {}): MonitorConfig {
     return {
@@ -48,7 +48,9 @@ describe("TcpChecker", () => {
         mockSocket.destroy = vi.fn();
 
         vi.spyOn(net, "connect").mockImplementation((_opts: any, _cb: any) => {
-            process.nextTick(() => mockSocket.emit("error", new Error("ECONNREFUSED")));
+            process.nextTick(() =>
+                mockSocket.emit("error", new Error("ECONNREFUSED")),
+            );
             return mockSocket;
         });
 
@@ -80,10 +82,12 @@ describe("TcpChecker", () => {
         mockSocket.setTimeout = vi.fn();
         mockSocket.destroy = vi.fn();
 
-        const connectSpy = vi.spyOn(net, "connect").mockImplementation((_opts: any, cb: any) => {
-            process.nextTick(() => cb());
-            return mockSocket;
-        });
+        const connectSpy = vi
+            .spyOn(net, "connect")
+            .mockImplementation((_opts: any, cb: any) => {
+                process.nextTick(() => cb());
+                return mockSocket;
+            });
 
         await checker.check(createConfig({ url: "tcp://db.example.com:5432" }));
 
@@ -99,10 +103,12 @@ describe("TcpChecker", () => {
         mockSocket.setTimeout = vi.fn();
         mockSocket.destroy = vi.fn();
 
-        const connectSpy = vi.spyOn(net, "connect").mockImplementation((_opts: any, cb: any) => {
-            process.nextTick(() => cb());
-            return mockSocket;
-        });
+        const connectSpy = vi
+            .spyOn(net, "connect")
+            .mockImplementation((_opts: any, cb: any) => {
+                process.nextTick(() => cb());
+                return mockSocket;
+            });
 
         await checker.check(createConfig({ url: "tcp://db.example.com" }));
 

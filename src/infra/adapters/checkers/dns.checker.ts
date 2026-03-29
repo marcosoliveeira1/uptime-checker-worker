@@ -1,7 +1,7 @@
 import dns from "node:dns/promises";
-import { IUptimeChecker } from "../../../domain/interfaces/uptime-checker.interface";
-import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
-import { CheckResult } from "../../../domain/value-objects/check-result";
+import type { IUptimeChecker } from "../../../domain/interfaces/uptime-checker.interface";
+import type { CheckResult } from "../../../domain/value-objects/check-result";
+import type { MonitorConfig } from "../../../domain/value-objects/monitor-config";
 import { UptimeStatus } from "../../../domain/value-objects/uptime-status";
 
 export class DnsChecker implements IUptimeChecker {

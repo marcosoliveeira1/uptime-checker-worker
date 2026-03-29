@@ -1,5 +1,5 @@
-import { Protocol } from "../value-objects/protocol";
-import { UptimeStatus } from "../value-objects/uptime-status";
+import type { Protocol } from "../value-objects/protocol";
+import type { UptimeStatus } from "../value-objects/uptime-status";
 
 export interface UptimeWideEvent {
     service: "uptime-checker-worker";

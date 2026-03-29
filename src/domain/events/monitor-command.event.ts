@@ -1,4 +1,4 @@
-import { Protocol } from "../value-objects/protocol";
+import type { Protocol } from "../value-objects/protocol";
 
 export interface AddSiteCommand {
     monitor_id: string;

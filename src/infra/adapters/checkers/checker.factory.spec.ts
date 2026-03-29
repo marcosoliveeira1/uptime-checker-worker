@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { CheckerFactory } from "./checker.factory";
+import { describe, expect, it } from "vitest";
 import { Protocol } from "../../../domain/value-objects/protocol";
+import { CheckerFactory } from "./checker.factory";
 
 describe("CheckerFactory", () => {
     const factory = new CheckerFactory();
@@ -32,6 +32,8 @@ describe("CheckerFactory", () => {
     });
 
     it("should throw error for unknown protocol", () => {
-        expect(() => factory.getChecker("unknown" as any)).toThrow("No checker for protocol");
+        expect(() => factory.getChecker("unknown" as any)).toThrow(
+            "No checker for protocol",
+        );
     });
 });

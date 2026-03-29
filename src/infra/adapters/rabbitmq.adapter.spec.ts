@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RabbitMQAdapter } from "./rabbitmq.adapter";
 import * as amqp from "amqplib";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RabbitMQAdapter } from "./rabbitmq.adapter";
 
 vi.mock("amqplib");
 
@@ -57,7 +57,9 @@ describe("RabbitMQAdapter", () => {
 
             await adapter.connect();
 
-            expect(mockedAmqp.connect).toHaveBeenCalledWith("amqp://localhost:5672");
+            expect(mockedAmqp.connect).toHaveBeenCalledWith(
+                "amqp://localhost:5672",
+            );
             expect(mockChannel.prefetch).toHaveBeenCalledWith(10);
             expect(mockChannel.assertExchange).toHaveBeenCalledTimes(2);
             expect(mockChannel.assertQueue).toHaveBeenCalledTimes(2);
@@ -92,7 +94,9 @@ describe("RabbitMQAdapter", () => {
 
         it("should handle connection error and retry", async () => {
             vi.useFakeTimers();
-            mockedAmqp.connect.mockRejectedValueOnce(new Error("Connection failed"));
+            mockedAmqp.connect.mockRejectedValueOnce(
+                new Error("Connection failed"),
+            );
             mockedAmqp.connect.mockResolvedValueOnce(
                 createMockConnection(createMockChannel()) as any,
             );
@@ -138,19 +142,28 @@ describe("RabbitMQAdapter", () => {
             mockedAmqp.connect.mockResolvedValue(mockConnection as any);
             await adapter.connect();
 
-            const message = { monitor_id: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV", status: "up" };
+            const message = {
+                monitor_id: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                status: "up",
+            };
             await adapter.publish("uptime.results", "check.completed", message);
 
             expect(mockChannel.publish).toHaveBeenCalledWith(
                 "uptime.results",
                 "check.completed",
                 expect.any(Buffer),
-                expect.objectContaining({ persistent: true, contentType: "application/json" }),
+                expect.objectContaining({
+                    persistent: true,
+                    contentType: "application/json",
+                }),
             );
         });
 
         it("should buffer messages when disconnected", async () => {
-            const message = { monitor_id: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV", status: "up" };
+            const message = {
+                monitor_id: "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                status: "up",
+            };
             await adapter.publish("uptime.results", "check.completed", message);
 
             expect(adapter.isConnected()).toBe(false);
@@ -159,14 +172,19 @@ describe("RabbitMQAdapter", () => {
 
         it("should not buffer beyond max size", async () => {
             for (let i = 0; i < 1001; i++) {
-                await adapter.publish("uptime.results", "check.completed", { id: i });
+                await adapter.publish("uptime.results", "check.completed", {
+                    id: i,
+                });
             }
 
             expect((adapter as any).buffer).toHaveLength(1000);
         });
 
         it("should drain buffered messages after connecting", async () => {
-            const message = { monitor_id: "mon_02BRY4OFLUXV5SSGGG75H6GBW", status: "up" };
+            const message = {
+                monitor_id: "mon_02BRY4OFLUXV5SSGGG75H6GBW",
+                status: "up",
+            };
             await adapter.publish("uptime.results", "check.completed", message);
 
             const mockChannel = createMockChannel();
@@ -210,7 +228,10 @@ describe("RabbitMQAdapter", () => {
             await adapter.connect();
 
             const handler = vi.fn().mockResolvedValue(undefined);
-            await adapter.subscribeWithRouting("uptime.commands.pending", handler);
+            await adapter.subscribeWithRouting(
+                "uptime.commands.pending",
+                handler,
+            );
 
             const consumeFn = mockChannel.consume.mock.calls[0][1];
             await consumeFn({
@@ -232,7 +253,10 @@ describe("RabbitMQAdapter", () => {
             await adapter.connect();
 
             const handler = vi.fn().mockRejectedValue(new Error("boom"));
-            await adapter.subscribeWithRouting("uptime.commands.pending", handler);
+            await adapter.subscribeWithRouting(
+                "uptime.commands.pending",
+                handler,
+            );
             const consumeFn = mockChannel.consume.mock.calls[0][1];
 
             await consumeFn({
@@ -249,7 +273,10 @@ describe("RabbitMQAdapter", () => {
             mockedAmqp.connect.mockResolvedValue(mockConnection as any);
             await adapter.connect();
 
-            await adapter.subscribeWithRouting("uptime.commands.pending", vi.fn());
+            await adapter.subscribeWithRouting(
+                "uptime.commands.pending",
+                vi.fn(),
+            );
             const consumeFn = mockChannel.consume.mock.calls[0][1];
 
             await consumeFn(null);
@@ -260,7 +287,10 @@ describe("RabbitMQAdapter", () => {
 
         it("should throw if channel is not initialized", async () => {
             await expect(
-                adapter.subscribeWithRouting("uptime.commands.pending", vi.fn()),
+                adapter.subscribeWithRouting(
+                    "uptime.commands.pending",
+                    vi.fn(),
+                ),
             ).rejects.toThrow("Channel not initialized");
         });
     });
@@ -293,15 +323,18 @@ describe("RabbitMQAdapter", () => {
 
             await adapter.subscribe("uptime.results", vi.fn());
             const consumeFn = mockChannel.consume.mock.calls[0][1];
-            await consumeFn({ content: Buffer.from("not-json"), fields: { routingKey: "x" } });
+            await consumeFn({
+                content: Buffer.from("not-json"),
+                fields: { routingKey: "x" },
+            });
 
             expect(mockChannel.nack).toHaveBeenCalledTimes(1);
         });
 
         it("should throw if channel is not initialized", async () => {
-            await expect(adapter.subscribe("uptime.results", vi.fn())).rejects.toThrow(
-                "Channel not initialized",
-            );
+            await expect(
+                adapter.subscribe("uptime.results", vi.fn()),
+            ).rejects.toThrow("Channel not initialized");
         });
     });
 
@@ -329,7 +362,11 @@ describe("RabbitMQAdapter", () => {
             const mockMessage = {};
             adapter.nack(mockMessage, true);
 
-            expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
+            expect(mockChannel.nack).toHaveBeenCalledWith(
+                mockMessage,
+                false,
+                true,
+            );
         });
 
         it("should no-op ack and nack when channel is missing", () => {

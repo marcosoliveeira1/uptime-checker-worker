@@ -1,7 +1,7 @@
 import { exec } from "node:child_process";
-import { IUptimeChecker } from "../../../domain/interfaces/uptime-checker.interface";
-import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
-import { CheckResult } from "../../../domain/value-objects/check-result";
+import type { IUptimeChecker } from "../../../domain/interfaces/uptime-checker.interface";
+import type { CheckResult } from "../../../domain/value-objects/check-result";
+import type { MonitorConfig } from "../../../domain/value-objects/monitor-config";
 import { UptimeStatus } from "../../../domain/value-objects/uptime-status";
 
 const RTT_REGEX = /time[=<](\d+(?:\.\d+)?)\s*ms/;
@@ -21,42 +21,46 @@ export class PingChecker implements IUptimeChecker {
                     ? `ping -c 1 -t ${timeoutSeconds} ${host}`
                     : `ping -c 1 -W ${timeoutSeconds} ${host}`;
 
-            exec(command, { timeout: (timeoutSeconds + 1) * 1000 }, (error, stdout, stderr) => {
-                const responseTimeMs = Date.now() - startTime;
+            exec(
+                command,
+                { timeout: (timeoutSeconds + 1) * 1000 },
+                (error, stdout, stderr) => {
+                    const responseTimeMs = Date.now() - startTime;
 
-                if (error) {
+                    if (error) {
+                        resolve({
+                            status: UptimeStatus.DOWN,
+                            responseTimeMs,
+                            statusCode: null,
+                            errorMessage: error.killed
+                                ? `Timeout after ${timeoutSeconds}s`
+                                : stderr || error.message,
+                            ipAddress: null,
+                            tlsCertificateDaysRemaining: null,
+                            sslExpiryWarning: false,
+                        });
+                        return;
+                    }
+
+                    // Parse RTT from output
+                    const rttMatch = stdout.match(RTT_REGEX);
+                    const rtt = rttMatch ? parseFloat(rttMatch[1]) : null;
+
+                    // Parse IP from output
+                    const ipMatch = stdout.match(IP_REGEX);
+                    const ipAddress = ipMatch ? ipMatch[1] : null;
+
                     resolve({
-                        status: UptimeStatus.DOWN,
-                        responseTimeMs,
+                        status: UptimeStatus.UP,
+                        responseTimeMs: rtt ?? responseTimeMs,
                         statusCode: null,
-                        errorMessage: error.killed
-                            ? `Timeout after ${timeoutSeconds}s`
-                            : stderr || error.message,
-                        ipAddress: null,
+                        errorMessage: null,
+                        ipAddress,
                         tlsCertificateDaysRemaining: null,
                         sslExpiryWarning: false,
                     });
-                    return;
-                }
-
-                // Parse RTT from output
-                const rttMatch = stdout.match(RTT_REGEX);
-                const rtt = rttMatch ? parseFloat(rttMatch[1]) : null;
-
-                // Parse IP from output
-                const ipMatch = stdout.match(IP_REGEX);
-                const ipAddress = ipMatch ? ipMatch[1] : null;
-
-                resolve({
-                    status: UptimeStatus.UP,
-                    responseTimeMs: rtt ?? responseTimeMs,
-                    statusCode: null,
-                    errorMessage: null,
-                    ipAddress,
-                    tlsCertificateDaysRemaining: null,
-                    sslExpiryWarning: false,
-                });
-            });
+                },
+            );
         });
     }
 }

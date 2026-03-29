@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
-import { WideEventEmitter } from "./wide-event.emitter";
-import { MonitorConfig } from "../../domain/value-objects/monitor-config";
-import { CheckResult } from "../../domain/value-objects/check-result";
+import { describe, expect, it, vi } from "vitest";
+import type { CheckResult } from "../../domain/value-objects/check-result";
+import type { MonitorConfig } from "../../domain/value-objects/monitor-config";
 import { logger } from "../config/logger";
+import { WideEventEmitter } from "./wide-event.emitter";
 
 vi.mock("../config/logger", () => ({
     logger: {

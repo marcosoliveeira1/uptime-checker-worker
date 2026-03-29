@@ -1,4 +1,4 @@
-import { RabbitMQAdapter } from "../adapters/rabbitmq.adapter";
+import type { RabbitMQAdapter } from "../adapters/rabbitmq.adapter";
 
 export interface HealthStatus {
     status: "healthy" | "degraded" | "unhealthy";
@@ -31,7 +31,8 @@ export class HealthService {
 
     async check(): Promise<HealthStatus> {
         const rabbitmqConnected = this.broker.isConnected();
-        const schedulerRunning = this.metricsProvider?.isSchedulerRunning() ?? false;
+        const schedulerRunning =
+            this.metricsProvider?.isSchedulerRunning() ?? false;
 
         const isHealthy = rabbitmqConnected;
         const status = isHealthy ? "healthy" : "degraded";
@@ -50,7 +51,8 @@ export class HealthService {
 
     async isReady(): Promise<boolean> {
         const rabbitmqConnected = this.broker.isConnected();
-        const schedulerRunning = this.metricsProvider?.isSchedulerRunning() ?? false;
+        const schedulerRunning =
+            this.metricsProvider?.isSchedulerRunning() ?? false;
         return rabbitmqConnected && schedulerRunning;
     }
 }

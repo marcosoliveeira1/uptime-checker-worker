@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { HttpChecker } from "./http.checker";
-import { MonitorConfig } from "../../../domain/value-objects/monitor-config";
 import http from "node:http";
 import https from "node:https";
-import { TLSSocket } from "node:tls";
 import { EventEmitter, PassThrough } from "node:stream";
+import { TLSSocket } from "node:tls";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MonitorConfig } from "../../../domain/value-objects/monitor-config";
+import { HttpChecker } from "./http.checker";
 
 function createConfig(overrides: Partial<MonitorConfig> = {}): MonitorConfig {
     return {
@@ -36,13 +36,15 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "93.184.216.34" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            req.on = req.on.bind(req);
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                req.on = req.on.bind(req);
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -57,11 +59,13 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 500;
         mockResponse.socket = { remoteAddress: "93.184.216.34" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -71,11 +75,15 @@ describe("HttpChecker", () => {
     });
 
     it("should return DOWN on request error", async () => {
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, _cb: any) => {
-            const req = new EventEmitter() as any;
-            process.nextTick(() => req.emit("error", new Error("ECONNREFUSED")));
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, _cb: any) => {
+                const req = new EventEmitter() as any;
+                process.nextTick(() =>
+                    req.emit("error", new Error("ECONNREFUSED")),
+                );
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -88,17 +96,21 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => {
-                cb(mockResponse);
-                mockResponse.emit("data", "Hello World");
-                mockResponse.emit("end");
-            });
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => {
+                    cb(mockResponse);
+                    mockResponse.emit("data", "Hello World");
+                    mockResponse.emit("end");
+                });
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ keywordCheck: "NotFound" }));
+        const result = await checker.check(
+            createConfig({ keywordCheck: "NotFound" }),
+        );
 
         expect(result.status).toBe("down");
         expect(result.errorMessage).toBe("Keyword not found");
@@ -109,17 +121,21 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => {
-                cb(mockResponse);
-                mockResponse.emit("data", "Hello World");
-                mockResponse.emit("end");
-            });
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => {
+                    cb(mockResponse);
+                    mockResponse.emit("data", "Hello World");
+                    mockResponse.emit("end");
+                });
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ keywordCheck: "Hello" }));
+        const result = await checker.check(
+            createConfig({ keywordCheck: "Hello" }),
+        );
 
         expect(result.status).toBe("up");
         expect(result.errorMessage).toBeNull();
@@ -130,12 +146,14 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -174,14 +192,18 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 201;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ expectedStatusCode: 201 }));
+        const result = await checker.check(
+            createConfig({ expectedStatusCode: 201 }),
+        );
 
         expect(result.status).toBe("up");
         expect(result.statusCode).toBe(201);
@@ -191,14 +213,18 @@ describe("HttpChecker", () => {
         vi.useFakeTimers();
         const mockReq = new EventEmitter() as any;
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, opts: any, _cb: any) => {
-            opts.signal.addEventListener("abort", () => {
-                mockReq.emit("error", new Error("Request aborted"));
-            });
-            return mockReq;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, opts: any, _cb: any) => {
+                opts.signal.addEventListener("abort", () => {
+                    mockReq.emit("error", new Error("Request aborted"));
+                });
+                return mockReq;
+            },
+        );
 
-        const resultPromise = checker.check(createConfig({ timeoutSeconds: 1 }));
+        const resultPromise = checker.check(
+            createConfig({ timeoutSeconds: 1 }),
+        );
         await vi.advanceTimersByTimeAsync(1000);
         const result = await resultPromise;
 
@@ -212,12 +238,14 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: undefined };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -230,12 +258,14 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = undefined;
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -248,21 +278,25 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => {
-                cb(mockResponse);
-                // Simulate large response
-                for (let i = 0; i < 100; i++) {
-                    mockResponse.emit("data", "x".repeat(1024));
-                }
-                mockResponse.emit("data", "FOUND_KEYWORD");
-                mockResponse.emit("end");
-            });
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => {
+                    cb(mockResponse);
+                    // Simulate large response
+                    for (let i = 0; i < 100; i++) {
+                        mockResponse.emit("data", "x".repeat(1024));
+                    }
+                    mockResponse.emit("data", "FOUND_KEYWORD");
+                    mockResponse.emit("end");
+                });
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ keywordCheck: "FOUND_KEYWORD" }));
+        const result = await checker.check(
+            createConfig({ keywordCheck: "FOUND_KEYWORD" }),
+        );
 
         expect(result.status).toBe("up");
         expect(result.responseTimeMs).toBeGreaterThanOrEqual(0);
@@ -276,12 +310,14 @@ describe("HttpChecker", () => {
         const resumeSpy = vi.fn();
         mockResponse.resume = resumeSpy;
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -292,12 +328,17 @@ describe("HttpChecker", () => {
     it("should capture HTTP error details", async () => {
         const mockReq = new EventEmitter() as any;
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, _cb: any) => {
-            process.nextTick(() =>
-                mockReq.emit("error", new Error("ECONNRESET: Connection reset by peer")),
-            );
-            return mockReq;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, _cb: any) => {
+                process.nextTick(() =>
+                    mockReq.emit(
+                        "error",
+                        new Error("ECONNRESET: Connection reset by peer"),
+                    ),
+                );
+                return mockReq;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -310,12 +351,14 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = undefined;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -331,12 +374,14 @@ describe("HttpChecker", () => {
         const dateNowSpy = vi.spyOn(Date, "now");
         dateNowSpy.mockReturnValueOnce(1000).mockReturnValueOnce(120000);
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(createConfig());
 
@@ -347,19 +392,25 @@ describe("HttpChecker", () => {
     it("should extract TLS certificate days when valid_to exists", async () => {
         const mockResponse = new PassThrough() as any;
         mockResponse.statusCode = 200;
-        const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
-        Object.defineProperty(socket, "remoteAddress", { get: () => "8.8.8.8" });
+        const socket = Object.create(TLSSocket.prototype) as TLSSocket & {
+            remoteAddress?: string;
+        };
+        Object.defineProperty(socket, "remoteAddress", {
+            get: () => "8.8.8.8",
+        });
         (socket as any).getPeerCertificate = vi
             .fn()
             .mockReturnValue({ valid_to: "Jan 01 2099 GMT" });
         mockResponse.socket = socket;
 
-        vi.spyOn(https, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(https, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(
             createConfig({ protocol: "https", url: "https://example.com" }),
@@ -372,19 +423,25 @@ describe("HttpChecker", () => {
     it("should ignore TLS extraction errors and keep check successful", async () => {
         const mockResponse = new PassThrough() as any;
         mockResponse.statusCode = 200;
-        const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
-        Object.defineProperty(socket, "remoteAddress", { get: () => "8.8.4.4" });
+        const socket = Object.create(TLSSocket.prototype) as TLSSocket & {
+            remoteAddress?: string;
+        };
+        Object.defineProperty(socket, "remoteAddress", {
+            get: () => "8.8.4.4",
+        });
         (socket as any).getPeerCertificate = vi.fn().mockImplementation(() => {
             throw new Error("cert parse error");
         });
         mockResponse.socket = socket;
 
-        vi.spyOn(https, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(https, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(
             createConfig({ protocol: "https", url: "https://example.com" }),
@@ -412,14 +469,18 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 201;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ acceptedStatusCodes: [200, 201] }));
+        const result = await checker.check(
+            createConfig({ acceptedStatusCodes: [200, 201] }),
+        );
 
         expect(result.status).toBe("up");
         expect(result.statusCode).toBe(201);
@@ -431,14 +492,18 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 301;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            const req = new EventEmitter() as any;
-            req.on = req.on.bind(req);
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                const req = new EventEmitter() as any;
+                req.on = req.on.bind(req);
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ acceptedStatusCodes: [200, 201] }));
+        const result = await checker.check(
+            createConfig({ acceptedStatusCodes: [200, 201] }),
+        );
 
         expect(result.status).toBe("down");
         expect(result.statusCode).toBe(301);
@@ -453,18 +518,22 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            // Delay the response callback by 50ms so elapsed time exceeds threshold
-            setTimeout(() => {
-                cb(mockResponse);
-                mockResponse.emit("end");
-            }, 50);
-            const req = new EventEmitter() as any;
-            req.on = req.on.bind(req);
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                // Delay the response callback by 50ms so elapsed time exceeds threshold
+                setTimeout(() => {
+                    cb(mockResponse);
+                    mockResponse.emit("end");
+                }, 50);
+                const req = new EventEmitter() as any;
+                req.on = req.on.bind(req);
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ slowThresholdMs: 1 }));
+        const result = await checker.check(
+            createConfig({ slowThresholdMs: 1 }),
+        );
 
         expect(result.status).toBe("degraded");
     });
@@ -474,14 +543,18 @@ describe("HttpChecker", () => {
         mockResponse.statusCode = 200;
         mockResponse.socket = { remoteAddress: "1.2.3.4" };
 
-        vi.spyOn(http, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(http, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
-        const result = await checker.check(createConfig({ slowThresholdMs: 10000 }));
+        const result = await checker.check(
+            createConfig({ slowThresholdMs: 10000 }),
+        );
 
         expect(result.status).toBe("up");
     });
@@ -491,19 +564,27 @@ describe("HttpChecker", () => {
     it("should skip TLS extraction when checkSsl is false", async () => {
         const mockResponse = new PassThrough() as any;
         mockResponse.statusCode = 200;
-        const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
-        Object.defineProperty(socket, "remoteAddress", { get: () => "8.8.8.8" });
+        const socket = Object.create(TLSSocket.prototype) as TLSSocket & {
+            remoteAddress?: string;
+        };
+        Object.defineProperty(socket, "remoteAddress", {
+            get: () => "8.8.8.8",
+        });
         (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
-            valid_to: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toUTCString(),
+            valid_to: new Date(
+                Date.now() + 60 * 24 * 60 * 60 * 1000,
+            ).toUTCString(),
         });
         mockResponse.socket = socket;
 
-        vi.spyOn(https, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(https, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(
             createConfig({
@@ -523,20 +604,28 @@ describe("HttpChecker", () => {
     it("should set sslExpiryWarning=true when cert expires within sslExpiryReminderDays", async () => {
         const mockResponse = new PassThrough() as any;
         mockResponse.statusCode = 200;
-        const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
-        Object.defineProperty(socket, "remoteAddress", { get: () => "8.8.8.8" });
+        const socket = Object.create(TLSSocket.prototype) as TLSSocket & {
+            remoteAddress?: string;
+        };
+        Object.defineProperty(socket, "remoteAddress", {
+            get: () => "8.8.8.8",
+        });
         // Cert expires in 15 days
         (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
-            valid_to: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toUTCString(),
+            valid_to: new Date(
+                Date.now() + 15 * 24 * 60 * 60 * 1000,
+            ).toUTCString(),
         });
         mockResponse.socket = socket;
 
-        vi.spyOn(https, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(https, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(
             createConfig({
@@ -555,20 +644,28 @@ describe("HttpChecker", () => {
     it("should set sslExpiryWarning=false when cert is not close to expiry", async () => {
         const mockResponse = new PassThrough() as any;
         mockResponse.statusCode = 200;
-        const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
-        Object.defineProperty(socket, "remoteAddress", { get: () => "8.8.8.8" });
+        const socket = Object.create(TLSSocket.prototype) as TLSSocket & {
+            remoteAddress?: string;
+        };
+        Object.defineProperty(socket, "remoteAddress", {
+            get: () => "8.8.8.8",
+        });
         // Cert expires in 90 days
         (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
-            valid_to: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString(),
+            valid_to: new Date(
+                Date.now() + 90 * 24 * 60 * 60 * 1000,
+            ).toUTCString(),
         });
         mockResponse.socket = socket;
 
-        vi.spyOn(https, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(https, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(
             createConfig({
@@ -585,20 +682,28 @@ describe("HttpChecker", () => {
     it("should not set sslExpiryWarning when sslExpiryReminderDays is not configured", async () => {
         const mockResponse = new PassThrough() as any;
         mockResponse.statusCode = 200;
-        const socket = Object.create(TLSSocket.prototype) as TLSSocket & { remoteAddress?: string };
-        Object.defineProperty(socket, "remoteAddress", { get: () => "8.8.8.8" });
+        const socket = Object.create(TLSSocket.prototype) as TLSSocket & {
+            remoteAddress?: string;
+        };
+        Object.defineProperty(socket, "remoteAddress", {
+            get: () => "8.8.8.8",
+        });
         // Cert expires in 5 days — but no reminder days set
         (socket as any).getPeerCertificate = vi.fn().mockReturnValue({
-            valid_to: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toUTCString(),
+            valid_to: new Date(
+                Date.now() + 5 * 24 * 60 * 60 * 1000,
+            ).toUTCString(),
         });
         mockResponse.socket = socket;
 
-        vi.spyOn(https, "get").mockImplementation((_url: any, _opts: any, cb: any) => {
-            process.nextTick(() => cb(mockResponse));
-            process.nextTick(() => mockResponse.emit("end"));
-            const req = new EventEmitter() as any;
-            return req;
-        });
+        vi.spyOn(https, "get").mockImplementation(
+            (_url: any, _opts: any, cb: any) => {
+                process.nextTick(() => cb(mockResponse));
+                process.nextTick(() => mockResponse.emit("end"));
+                const req = new EventEmitter() as any;
+                return req;
+            },
+        );
 
         const result = await checker.check(
             createConfig({

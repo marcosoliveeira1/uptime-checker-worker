@@ -1,4 +1,4 @@
-import { Protocol } from "./protocol";
+import type { Protocol } from "./protocol";
 
 export interface MonitorConfig {
     monitorId: string;

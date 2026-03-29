@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { HealthService, HealthMetricsProvider } from "./health.service";
-import { RabbitMQAdapter } from "../adapters/rabbitmq.adapter";
+import { describe, expect, it, vi } from "vitest";
+import type { RabbitMQAdapter } from "../adapters/rabbitmq.adapter";
+import { type HealthMetricsProvider, HealthService } from "./health.service";
 
 function createMockBroker(connected = true): RabbitMQAdapter {
     return {
@@ -8,7 +8,9 @@ function createMockBroker(connected = true): RabbitMQAdapter {
     } as unknown as RabbitMQAdapter;
 }
 
-function createMockMetrics(overrides: Partial<HealthMetricsProvider> = {}): HealthMetricsProvider {
+function createMockMetrics(
+    overrides: Partial<HealthMetricsProvider> = {},
+): HealthMetricsProvider {
     return {
         getMonitorsActive: vi.fn().mockReturnValue(10),
         getChecksTotal: vi.fn().mockReturnValue(500),

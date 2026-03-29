@@ -1,4 +1,4 @@
-import { IMonitorScheduler } from "../../domain/interfaces/monitor-scheduler.interface";
+import type { IMonitorScheduler } from "../../domain/interfaces/monitor-scheduler.interface";
 import { createSchedulerLogger } from "../config/logger";
 
 const log = createSchedulerLogger();
@@ -17,9 +17,13 @@ export class TickScheduler implements IMonitorScheduler {
     constructor(
         private readonly tickIntervalMs: number = 1000,
         private readonly maxConcurrentChecks: number = 50,
-    ) { }
+    ) {}
 
-    add(monitorId: string, intervalMs: number, callback: () => Promise<void>): void {
+    add(
+        monitorId: string,
+        intervalMs: number,
+        callback: () => Promise<void>,
+    ): void {
         const now = Date.now();
         this.monitors.set(monitorId, {
             intervalMs,
@@ -49,7 +53,10 @@ export class TickScheduler implements IMonitorScheduler {
         if (this.tickTimer) return;
         this.tickTimer = setInterval(() => this.tick(), this.tickIntervalMs);
         log.info(
-            { tickIntervalMs: this.tickIntervalMs, maxConcurrentChecks: this.maxConcurrentChecks },
+            {
+                tickIntervalMs: this.tickIntervalMs,
+                maxConcurrentChecks: this.maxConcurrentChecks,
+            },
             "Scheduler started",
         );
     }

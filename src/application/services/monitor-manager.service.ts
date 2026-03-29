@@ -1,17 +1,17 @@
-import { IMonitorScheduler } from "../../domain/interfaces/monitor-scheduler.interface";
-import { IMessageBroker } from "../../domain/interfaces/message-broker.interface";
-import { MonitorConfig } from "../../domain/value-objects/monitor-config";
-import { CheckResult } from "../../domain/value-objects/check-result";
-import {
+import type { CheckCompletedEvent } from "../../domain/events/check-completed.event";
+import type {
     AddSiteCommand,
-    UpdateSiteCommand,
     RemoveSiteCommand,
+    UpdateSiteCommand,
 } from "../../domain/events/monitor-command.event";
-import { CheckCompletedEvent } from "../../domain/events/check-completed.event";
-import { CheckerFactory } from "../../infra/adapters/checkers/checker.factory";
-import { WideEventEmitter } from "../../infra/observability/wide-event.emitter";
-import { HealthMetricsProvider } from "../../infra/health/health.service";
+import type { IMessageBroker } from "../../domain/interfaces/message-broker.interface";
+import type { IMonitorScheduler } from "../../domain/interfaces/monitor-scheduler.interface";
+import type { CheckResult } from "../../domain/value-objects/check-result";
+import type { MonitorConfig } from "../../domain/value-objects/monitor-config";
+import type { CheckerFactory } from "../../infra/adapters/checkers/checker.factory";
 import { createServiceLogger } from "../../infra/config/logger";
+import type { HealthMetricsProvider } from "../../infra/health/health.service";
+import type { WideEventEmitter } from "../../infra/observability/wide-event.emitter";
 
 const log = createServiceLogger("monitor-manager");
 
@@ -37,7 +37,10 @@ export class MonitorManager implements HealthMetricsProvider {
 
         // Idempotency: if already exists, treat as update
         if (this.registry.has(monitorId)) {
-            log.info({ monitorId }, "Monitor already exists, treating add as update");
+            log.info(
+                { monitorId },
+                "Monitor already exists, treating add as update",
+            );
             this.updateMonitor(command as unknown as UpdateSiteCommand);
             return;
         }
@@ -46,7 +49,9 @@ export class MonitorManager implements HealthMetricsProvider {
         const intervalMs = config.checkIntervalSeconds * 1000;
 
         this.registry.set(monitorId, { config });
-        this.scheduler.add(monitorId, intervalMs, () => this.executeCheck(monitorId));
+        this.scheduler.add(monitorId, intervalMs, () =>
+            this.executeCheck(monitorId),
+        );
 
         log.info(
             {
@@ -73,10 +78,15 @@ export class MonitorManager implements HealthMetricsProvider {
         if (existing) {
             this.scheduler.update(monitorId, intervalMs);
         } else {
-            this.scheduler.add(monitorId, intervalMs, () => this.executeCheck(monitorId));
+            this.scheduler.add(monitorId, intervalMs, () =>
+                this.executeCheck(monitorId),
+            );
         }
 
-        log.info({ monitorId, url: config.url, protocol: config.protocol }, "Monitor updated");
+        log.info(
+            { monitorId, url: config.url, protocol: config.protocol },
+            "Monitor updated",
+        );
     }
 
     removeMonitor(command: RemoveSiteCommand): void {
@@ -107,7 +117,8 @@ export class MonitorManager implements HealthMetricsProvider {
                 status: "down",
                 responseTimeMs: Date.now() - startTime,
                 statusCode: null,
-                errorMessage: err instanceof Error ? err.message : "Unknown error",
+                errorMessage:
+                    err instanceof Error ? err.message : "Unknown error",
                 ipAddress: null,
                 tlsCertificateDaysRemaining: null,
                 sslExpiryWarning: false,
@@ -168,7 +179,9 @@ export class MonitorManager implements HealthMetricsProvider {
         return this.scheduler.getActiveCount() >= 0; // scheduler is always "running" if it exists
     }
 
-    private commandToConfig(command: AddSiteCommand | UpdateSiteCommand): MonitorConfig {
+    private commandToConfig(
+        command: AddSiteCommand | UpdateSiteCommand,
+    ): MonitorConfig {
         return {
             monitorId: command.monitor_id,
             siteId: command.site_id,

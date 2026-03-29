@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TickScheduler } from "./tick-scheduler";
 
 describe("TickScheduler", () => {
@@ -108,7 +108,9 @@ describe("TickScheduler", () => {
     });
 
     it("should handle callback rejection gracefully", async () => {
-        const failingCallback = vi.fn().mockRejectedValue(new Error("Callback failed"));
+        const failingCallback = vi
+            .fn()
+            .mockRejectedValue(new Error("Callback failed"));
         scheduler.add("mon_1", 1000, failingCallback);
         scheduler.start();
 

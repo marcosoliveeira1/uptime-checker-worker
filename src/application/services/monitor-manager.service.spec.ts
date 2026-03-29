@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MonitorManager } from "./monitor-manager.service";
-import { IMonitorScheduler } from "../../domain/interfaces/monitor-scheduler.interface";
-import { IMessageBroker } from "../../domain/interfaces/message-broker.interface";
-import { CheckerFactory } from "../../infra/adapters/checkers/checker.factory";
-import { WideEventEmitter } from "../../infra/observability/wide-event.emitter";
-import {
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
     AddSiteCommand,
     RemoveSiteCommand,
     UpdateSiteCommand,
 } from "../../domain/events/monitor-command.event";
-import { IUptimeChecker } from "../../domain/interfaces/uptime-checker.interface";
+import type { IMessageBroker } from "../../domain/interfaces/message-broker.interface";
+import type { IMonitorScheduler } from "../../domain/interfaces/monitor-scheduler.interface";
+import type { IUptimeChecker } from "../../domain/interfaces/uptime-checker.interface";
+import type { CheckerFactory } from "../../infra/adapters/checkers/checker.factory";
+import type { WideEventEmitter } from "../../infra/observability/wide-event.emitter";
+import { MonitorManager } from "./monitor-manager.service";
 
 function createMockScheduler(): IMonitorScheduler {
     return {
@@ -81,7 +81,12 @@ describe("MonitorManager", () => {
         broker = createMockBroker();
         checkerFactory = createMockCheckerFactory();
         wideEventEmitter = createMockWideEventEmitter();
-        manager = new MonitorManager(scheduler, checkerFactory, broker, wideEventEmitter);
+        manager = new MonitorManager(
+            scheduler,
+            checkerFactory,
+            broker,
+            wideEventEmitter,
+        );
     });
 
     describe("addMonitor", () => {
@@ -118,7 +123,10 @@ describe("MonitorManager", () => {
 
             manager.updateMonitor(updateCommand);
 
-            expect(scheduler.update).toHaveBeenCalledWith("mon_01ARZ3NDEKTSV4RRFFQ69G5FAV", 30000);
+            expect(scheduler.update).toHaveBeenCalledWith(
+                "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                30000,
+            );
             expect(manager.getMonitorsActive()).toBe(1);
         });
 
@@ -149,7 +157,9 @@ describe("MonitorManager", () => {
 
             manager.removeMonitor(removeCommand);
 
-            expect(scheduler.remove).toHaveBeenCalledWith("mon_01ARZ3NDEKTSV4RRFFQ69G5FAV");
+            expect(scheduler.remove).toHaveBeenCalledWith(
+                "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            );
             expect(manager.getMonitorsActive()).toBe(0);
         });
     });
@@ -328,7 +338,9 @@ describe("MonitorManager", () => {
             });
 
             expect(manager.getMonitorsActive()).toBe(1);
-            expect(scheduler.remove).toHaveBeenCalledWith("mon_01ARZ3NDEKTSV4RRFFQ69G5FAV");
+            expect(scheduler.remove).toHaveBeenCalledWith(
+                "mon_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            );
         });
     });
 });

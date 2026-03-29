@@ -1,13 +1,14 @@
 import { v4 as uuidv4 } from "uuid";
+import type { AddSiteCommand, RemoveSiteCommand, UpdateSiteCommand } from "./domain/events/monitor-command.event";
+import { MonitorManager } from "./application/services/monitor-manager.service";
+import { CheckerFactory } from "./infra/adapters/checkers/checker.factory";
+import { RabbitMQAdapter } from "./infra/adapters/rabbitmq.adapter";
 import { env } from "./infra/config/env";
 import { createServiceLogger } from "./infra/config/logger";
-import { RabbitMQAdapter } from "./infra/adapters/rabbitmq.adapter";
-import { CheckerFactory } from "./infra/adapters/checkers/checker.factory";
-import { TickScheduler } from "./infra/scheduler/tick-scheduler";
-import { MonitorManager } from "./application/services/monitor-manager.service";
-import { WideEventEmitter } from "./infra/observability/wide-event.emitter";
-import { HealthService } from "./infra/health/health.service";
 import { HealthServer } from "./infra/health/health.server";
+import { HealthService } from "./infra/health/health.service";
+import { WideEventEmitter } from "./infra/observability/wide-event.emitter";
+import { TickScheduler } from "./infra/scheduler/tick-scheduler";
 
 const log = createServiceLogger("bootstrap");
 
@@ -15,9 +16,13 @@ async function bootstrap() {
     log.info("Starting Uptime Checker Worker...");
 
     // 1. Initialize adapters
+    // biome-ignore lint/style/noNonNullAssertion: RABBITMQ_URL is required by Zod in production
     const rabbitMQAdapter = new RabbitMQAdapter(env.RABBITMQ_URL!);
     const checkerFactory = new CheckerFactory();
-    const scheduler = new TickScheduler(env.TICK_INTERVAL_MS, env.MAX_CONCURRENT_CHECKS);
+    const scheduler = new TickScheduler(
+        env.TICK_INTERVAL_MS,
+        env.MAX_CONCURRENT_CHECKS,
+    );
     const wideEventEmitter = new WideEventEmitter();
 
     // 2. Initialize application service
@@ -41,21 +46,27 @@ async function bootstrap() {
         await healthServer.start();
 
         // 6. Subscribe to commands with routing
-        await rabbitMQAdapter.subscribeWithRouting("uptime.commands.pending", async (msg) => {
-            switch (msg.routingKey) {
-                case "site.add":
-                    monitorManager.addMonitor(msg.content);
-                    break;
-                case "site.update":
-                    monitorManager.updateMonitor(msg.content);
-                    break;
-                case "site.remove":
-                    monitorManager.removeMonitor(msg.content);
-                    break;
-                default:
-                    log.warn({ routingKey: msg.routingKey }, "Unknown routing key");
-            }
-        });
+        await rabbitMQAdapter.subscribeWithRouting(
+            "uptime.commands.pending",
+            async (msg) => {
+                switch (msg.routingKey) {
+                    case "site.add":
+                        monitorManager.addMonitor(msg.content as AddSiteCommand);
+                        break;
+                    case "site.update":
+                        monitorManager.updateMonitor(msg.content as UpdateSiteCommand);
+                        break;
+                    case "site.remove":
+                        monitorManager.removeMonitor(msg.content as RemoveSiteCommand);
+                        break;
+                    default:
+                        log.warn(
+                            { routingKey: msg.routingKey },
+                            "Unknown routing key",
+                        );
+                }
+            },
+        );
 
         // 7. Start scheduler
         scheduler.start();

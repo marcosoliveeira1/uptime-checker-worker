@@ -1,6 +1,6 @@
+import type { Channel, ConsumeMessage } from "amqplib";
 import * as amqp from "amqplib";
-import { Channel, ConsumeMessage } from "amqplib";
-import { IMessageBroker } from "../../domain/interfaces/message-broker.interface";
+import type { IMessageBroker } from "../../domain/interfaces/message-broker.interface";
 import { createAdapterLogger } from "../config/logger";
 
 const log = createAdapterLogger("rabbitmq");
@@ -14,7 +14,7 @@ interface BufferedMessage {
 }
 
 export interface RawMessage {
-    content: any;
+    content: unknown;
     routingKey: string;
 }
 
@@ -28,7 +28,7 @@ export class RabbitMQAdapter implements IMessageBroker {
     constructor(
         private readonly url: string,
         private readonly prefetchCount: number = 10,
-    ) {}
+    ) { }
 
     async connect(): Promise<void> {
         try {
@@ -83,8 +83,12 @@ export class RabbitMQAdapter implements IMessageBroker {
         if (!this.channel) throw new Error("Channel not initialized");
 
         // Exchanges
-        await this.channel.assertExchange("uptime.commands", "topic", { durable: true });
-        await this.channel.assertExchange("uptime.results", "topic", { durable: true });
+        await this.channel.assertExchange("uptime.commands", "topic", {
+            durable: true,
+        });
+        await this.channel.assertExchange("uptime.results", "topic", {
+            durable: true,
+        });
 
         // Queue for processing commands
         await this.channel.assertQueue("uptime.commands.pending", {
@@ -92,15 +96,33 @@ export class RabbitMQAdapter implements IMessageBroker {
         });
 
         // Dead Letter Queue
-        await this.channel.assertQueue("uptime.commands.dlq", { durable: true });
+        await this.channel.assertQueue("uptime.commands.dlq", {
+            durable: true,
+        });
 
         // Bindings
-        await this.channel.bindQueue("uptime.commands.pending", "uptime.commands", "site.add");
-        await this.channel.bindQueue("uptime.commands.pending", "uptime.commands", "site.update");
-        await this.channel.bindQueue("uptime.commands.pending", "uptime.commands", "site.remove");
+        await this.channel.bindQueue(
+            "uptime.commands.pending",
+            "uptime.commands",
+            "site.add",
+        );
+        await this.channel.bindQueue(
+            "uptime.commands.pending",
+            "uptime.commands",
+            "site.update",
+        );
+        await this.channel.bindQueue(
+            "uptime.commands.pending",
+            "uptime.commands",
+            "site.remove",
+        );
     }
 
-    async publish(exchange: string, routingKey: string, message: any): Promise<void> {
+    async publish(
+        exchange: string,
+        routingKey: string,
+        message: unknown,
+    ): Promise<void> {
         const content = Buffer.from(JSON.stringify(message));
 
         if (!this.channel || !this.connected) {
@@ -112,7 +134,10 @@ export class RabbitMQAdapter implements IMessageBroker {
                     "Message buffered (disconnected)",
                 );
             } else {
-                log.error({ exchange, routingKey }, "Buffer full, message dropped");
+                log.error(
+                    { exchange, routingKey },
+                    "Buffer full, message dropped",
+                );
             }
             return;
         }
@@ -175,7 +200,10 @@ export class RabbitMQAdapter implements IMessageBroker {
         log.info({ queue }, "Subscribed to queue with routing");
     }
 
-    async subscribe(queue: string, handler: (message: any) => Promise<void>): Promise<void> {
+    async subscribe(
+        queue: string,
+        handler: (message: unknown) => Promise<void>,
+    ): Promise<void> {
         if (!this.channel) throw new Error("Channel not initialized");
 
         await this.channel.consume(
@@ -198,12 +226,12 @@ export class RabbitMQAdapter implements IMessageBroker {
         log.info({ queue }, "Subscribed to queue");
     }
 
-    ack(message: any): void {
-        if (this.channel) this.channel.ack(message);
+    ack(message: unknown): void {
+        if (this.channel) this.channel.ack(message as ConsumeMessage);
     }
 
-    nack(message: any, requeue: boolean = false): void {
-        if (this.channel) this.channel.nack(message, false, requeue);
+    nack(message: unknown, requeue: boolean = false): void {
+        if (this.channel) this.channel.nack(message as ConsumeMessage, false, requeue);
     }
 
     isConnected(): boolean {

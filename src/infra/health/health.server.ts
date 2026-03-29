@@ -1,6 +1,6 @@
-import { createServer, Server } from "http";
-import { Logger } from "pino";
-import { HealthService } from "./health.service";
+import { createServer, type Server } from "node:http";
+import type { Logger } from "pino";
+import type { HealthService } from "./health.service";
 
 export class HealthServer {
     private server: Server | null = null;
@@ -20,7 +20,8 @@ export class HealthServer {
                 if (req.url === "/health" && req.method === "GET") {
                     try {
                         const status = await this.healthService.check();
-                        const statusCode = status.status === "healthy" ? 200 : 503;
+                        const statusCode =
+                            status.status === "healthy" ? 200 : 503;
                         res.writeHead(statusCode);
                         res.end(JSON.stringify(status));
                     } catch (error) {
@@ -29,7 +30,10 @@ export class HealthServer {
                         res.end(
                             JSON.stringify({
                                 status: "unhealthy",
-                                error: error instanceof Error ? error.message : "Unknown error",
+                                error:
+                                    error instanceof Error
+                                        ? error.message
+                                        : "Unknown error",
                             }),
                         );
                     }
@@ -66,7 +70,7 @@ export class HealthServer {
         if (!this.server) return;
 
         return new Promise((resolve, reject) => {
-            this.server!.close((error) => {
+            this.server?.close((error) => {
                 if (error) reject(error);
                 else {
                     this.logger.info("Health server stopped");
